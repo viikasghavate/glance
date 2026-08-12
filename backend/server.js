@@ -1,3 +1,4 @@
+import fs from 'fs';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -29,7 +30,11 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/users', userRoutes);
 
-const frontendDist = path.join(__dirname, '..', 'frontend', 'dist');
+const frontendDist = (() => {
+  const containerPath = path.join(__dirname, 'frontend', 'dist');
+  if (fs.existsSync(containerPath)) return containerPath;
+  return path.join(__dirname, '..', 'frontend', 'dist');
+})();
 app.use(express.static(frontendDist));
 app.get('*', (req, res) => {
   if (!req.path.startsWith('/api')) {
