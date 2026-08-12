@@ -1,0 +1,60 @@
+.task-filters {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.task-filters select {
+  width: auto;
+  min-width: 140px;
+}
+
+.task-table-wrap {
+  overflow-x: auto;
+}
+
+.task-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.task-table th {
+  text-align: left;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.task-table td {
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.task-row {
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.task-row:hover {
+  background: var(--bg-hover);
+}
+
+.task-title-cell {
+  font-weight: 500;
+}
+
+.status-select {
+  width: auto;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.date-cell {
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}

@@ -1,0 +1,95 @@
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.page-header h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.project-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.project-card:hover {
+  border-color: var(--primary);
+}
+
+.project-card.archived {
+  opacity: 0.6;
+}
+
+.project-card-bar {
+  height: 4px;
+}
+
+.project-card-body {
+  padding: 1rem;
+}
+
+.project-card-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.project-card-name:hover {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.project-card-desc {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.project-card-counts {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.count-item {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.count-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.count-dot.todo { background: #60a5fa; }
+.count-dot.in_progress { background: var(--warning); }
+.count-dot.done { background: var(--success); }
+
+.project-card-actions {
+  display: flex;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
