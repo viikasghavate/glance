@@ -1,44 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import ProjectModal from '../components/ProjectModal';
+import { useUI } from '../context/UIContext';
 import './ProjectListPage.css';
 
 export default function ProjectListPage() {
   const { apiFetch } = useAuth();
-  const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [editingProject, setEditingProject] = useState(null);
+  const {
+    projects, projectsLoading, refreshProjects,
+    openNewProjectModal, openEditProjectModal
+  } = useUI();
 
-  const fetchProjects = async () => {
-    try {
-      const data = await apiFetch('/projects');
-      setProjects(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { fetchProjects(); }, []);
-
-  const handleSave = async (data) => {
-    if (editingProject) {
-      await apiFetch(`/projects/${editingProject.id}`, { method: 'PATCH', body: JSON.stringify(data) });
-    } else {
-      await apiFetch('/projects', { method: 'POST', body: JSON.stringify(data) });
-    }
-    setShowModal(false);
-    setEditingProject(null);
-    fetchProjects();
-  };
+  useEffect(() => {
+    refreshProjects();
+  }, [refreshProjects]);
 
   const handleDelete = async (project) => {
     if (!confirm(`Delete project "${project.name}"? This will also delete all tasks and comments.`)) return;
     await apiFetch(`/projects/${project.id}`, { method: 'DELETE' });
-    fetchProjects();
+    refreshProjects();
   };
 
   const handleArchive = async (project) => {
@@ -46,16 +26,16 @@ export default function ProjectListPage() {
       method: 'PATCH',
       body: JSON.stringify({ archived: !project.archived })
     });
-    fetchProjects();
+    refreshProjects();
   };
 
-  if (loading) return <div className="loading"><div className="spinner" /></div>;
+  if (projectsLoading) return <div className="loading"><div className="spinner" /></div>;
 
   return (
     <div>
       <div className="page-header">
         <h1>Projects</h1>
-        <button className="btn-primary" onClick={() => { setEditingProject(null); setShowModal(true); }}>
+        <button className="btn-primary" onClick={openNewProjectModal}>
           + New Project
         </button>
       </div>
@@ -76,7 +56,7 @@ export default function ProjectListPage() {
                   <span className="count-item"><span className="count-dot done" /> {p.taskCounts?.done || 0} Done</span>
                 </div>
                 <div className="project-card-actions">
-                  <button className="btn-ghost btn-sm" onClick={() => { setEditingProject(p); setShowModal(true); }}>Edit</button>
+                  <button className="btn-ghost btn-sm" onClick={() => openEditProjectModal(p)}>Edit</button>
                   <button className="btn-ghost btn-sm" onClick={() => handleArchive(p)}>
                     {p.archived ? 'Unarchive' : 'Archive'}
                   </button>
@@ -86,14 +66,6 @@ export default function ProjectListPage() {
             </div>
           ))}
         </div>
-      )}
-
-      {showModal && (
-        <ProjectModal
-          project={editingProject}
-          onClose={() => { setShowModal(false); setEditingProject(null); }}
-          onSave={handleSave}
-        />
       )}
     </div>
   );

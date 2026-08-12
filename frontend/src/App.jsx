@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
+import { UIProvider } from './context/UIContext';
 import LoginPage from './pages/LoginPage';
 import ProjectListPage from './pages/ProjectListPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
@@ -16,7 +17,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+      <Route path="/" element={<ProtectedRoute><UIProvider><Layout /></UIProvider></ProtectedRoute>}>
         <Route index element={<ProjectListPage />} />
         <Route path="project/:id" element={<ProjectDetailPage />} />
       </Route>

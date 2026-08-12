@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useUI } from '../context/UIContext';
 import KanbanBoard from '../components/KanbanBoard';
 import TaskList from '../components/TaskList';
 import TaskModal from '../components/TaskModal';
@@ -11,11 +12,11 @@ export default function ProjectDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { apiFetch } = useAuth();
+  const { view, setBreadcrumb } = useUI();
   const [project, setProject] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState('board');
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
@@ -29,6 +30,7 @@ export default function ProjectDetailPage() {
       ]);
       if (!projData) { navigate('/'); return; }
       setProject(projData);
+      setBreadcrumb(`Glance / ${projData.name}`);
       setTasks(taskData);
       setUsers(userData);
     } catch (err) {
@@ -39,6 +41,10 @@ export default function ProjectDetailPage() {
   };
 
   useEffect(() => { fetchData(); }, [id]);
+
+  useEffect(() => {
+    return () => setBreadcrumb('');
+  }, []);
 
   const handleTaskSave = async (data) => {
     if (editingTask) {
@@ -89,10 +95,6 @@ export default function ProjectDetailPage() {
           {project.description && <p className="project-desc">{project.description}</p>}
         </div>
         <div className="view-actions">
-          <div className="view-toggle">
-            <button className={`btn-ghost btn-sm ${view === 'board' ? 'active' : ''}`} onClick={() => setView('board')}>Board</button>
-            <button className={`btn-ghost btn-sm ${view === 'list' ? 'active' : ''}`} onClick={() => setView('list')}>List</button>
-          </div>
           <button className="btn-primary" onClick={() => { setEditingTask(null); setShowTaskModal(true); }}>
             + New Task
           </button>
