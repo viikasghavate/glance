@@ -4,12 +4,13 @@
   grid-template-rows: 100vh;
   height: 100vh;
   overflow: hidden;
+  background: linear-gradient(90deg, #2a1e52 0%, #1e2035 40%, #16181f 70%, #0f1117 100%);
 }
 
 /* ── Icon Rail ── */
 .icon-rail {
-  background: #14151a;
-  border-right: 1px solid var(--border);
+  background: transparent;
+  border-right: 1px solid rgba(255,255,255,0.04);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -59,8 +60,8 @@
 
 /* ── Project Nav ── */
 .project-nav {
-  background: #1a1b21;
-  border-right: 1px solid var(--border);
+  background: transparent;
+  border-right: 1px solid rgba(255,255,255,0.04);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -218,7 +219,9 @@
   height: 48px;
   min-height: 48px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg-card);
+  background: rgba(20, 22, 28, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   gap: 1rem;
 }
 
