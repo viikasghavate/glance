@@ -10,8 +10,15 @@ router.get('/', (req, res) => {
   const includeArchived = req.query.includeArchived === 'true';
   const projects = db.prepare(
     includeArchived
-      ? 'SELECT * FROM projects ORDER BY created_at DESC'
-      : 'SELECT * FROM projects WHERE archived = 0 ORDER BY created_at DESC'
+      ? `SELECT p.*, u.name as owner_name, u.email as owner_email
+         FROM projects p
+         LEFT JOIN users u ON p.owner_id = u.id
+         ORDER BY p.created_at DESC`
+      : `SELECT p.*, u.name as owner_name, u.email as owner_email
+         FROM projects p
+         LEFT JOIN users u ON p.owner_id = u.id
+         WHERE p.archived = 0
+         ORDER BY p.created_at DESC`
   ).all();
 
   const stmt = db.prepare(`
@@ -38,14 +45,30 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const { name, description, color } = req.body;
+  const { name, description, color, status, start_date, due_date, owner_id, priority, progress } = req.body;
   if (!name) return res.status(400).json({ error: 'name is required' });
 
   const result = db.prepare(
-    'INSERT INTO projects (name, description, color) VALUES (?, ?, ?)'
-  ).run(name, description || '', color || '#6366f1');
+    `INSERT INTO projects (name, description, color, status, start_date, due_date, owner_id, priority, progress)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    name,
+    description || '',
+    color || '#6366f1',
+    status || 'active',
+    start_date || null,
+    due_date || null,
+    owner_id || null,
+    priority || 'medium',
+    progress != null ? progress : 0
+  );
 
-  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(result.lastInsertRowid);
+  const project = db.prepare(`
+    SELECT p.*, u.name as owner_name, u.email as owner_email
+    FROM projects p
+    LEFT JOIN users u ON p.owner_id = u.id
+    WHERE p.id = ?
+  `).get(result.lastInsertRowid);
   project.archived = !!project.archived;
   project.taskCounts = { todo: 0, in_progress: 0, done: 0 };
   res.status(201).json(project);
@@ -53,7 +76,12 @@ router.post('/', (req, res) => {
 
 router.get('/:id', (req, res) => {
   const { id } = req.params;
-  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
+  const project = db.prepare(`
+    SELECT p.*, u.name as owner_name, u.email as owner_email
+    FROM projects p
+    LEFT JOIN users u ON p.owner_id = u.id
+    WHERE p.id = ?
+  `).get(id);
   if (!project) return res.status(404).json({ error: 'Project not found' });
   project.archived = !!project.archived;
   res.json(project);
@@ -64,7 +92,7 @@ router.patch('/:id', (req, res) => {
   const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
-  const fields = ['name', 'description', 'color', 'archived'];
+  const fields = ['name', 'description', 'color', 'archived', 'status', 'start_date', 'due_date', 'owner_id', 'priority', 'progress'];
   const updates = [];
   const values = [];
 
@@ -81,7 +109,12 @@ router.patch('/:id', (req, res) => {
   values.push(id);
 
   db.prepare(`UPDATE projects SET ${updates.join(', ')} WHERE id = ?`).run(...values);
-  const updated = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
+  const updated = db.prepare(`
+    SELECT p.*, u.name as owner_name, u.email as owner_email
+    FROM projects p
+    LEFT JOIN users u ON p.owner_id = u.id
+    WHERE p.id = ?
+  `).get(id);
   updated.archived = !!updated.archived;
   res.json(updated);
 });

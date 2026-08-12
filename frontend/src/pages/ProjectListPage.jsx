@@ -4,6 +4,13 @@ import { useAuth } from '../context/AuthContext';
 import { useUI } from '../context/UIContext';
 import './ProjectListPage.css';
 
+const statusLabels = {
+  active: 'Active',
+  on_hold: 'On Hold',
+  completed: 'Completed',
+  archived: 'Archived'
+};
+
 export default function ProjectListPage() {
   const { apiFetch } = useAuth();
   const {
@@ -50,6 +57,19 @@ export default function ProjectListPage() {
               <div className="project-card-body">
                 <Link to={`/project/${p.id}`} className="project-card-name">{p.name}</Link>
                 {p.description && <p className="project-card-desc">{p.description}</p>}
+                <div className="project-card-meta">
+                  <span className={`badge badge-${p.status === 'active' ? 'done' : p.status === 'on_hold' ? 'medium' : p.status === 'completed' ? 'done' : 'low'}`}>
+                    {statusLabels[p.status] || p.status}
+                  </span>
+                  <span className={`badge badge-${p.priority}`}>{p.priority}</span>
+                  {p.owner_name && <span className="meta-owner">{p.owner_name}</span>}
+                </div>
+                <div className="project-card-progress">
+                  <div className="progress-bar">
+                    <div className="progress-fill" style={{ width: `${p.progress || 0}%` }} />
+                  </div>
+                  <span className="progress-text">{p.progress || 0}%</span>
+                </div>
                 <div className="project-card-counts">
                   <span className="count-item"><span className="count-dot todo" /> {p.taskCounts?.todo || 0} To Do</span>
                   <span className="count-item"><span className="count-dot in_progress" /> {p.taskCounts?.in_progress || 0} In Progress</span>

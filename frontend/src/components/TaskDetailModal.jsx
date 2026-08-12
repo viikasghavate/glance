@@ -54,9 +54,22 @@ export default function TaskDetailModal({ task, users, onClose, onUpdate, onDele
         <div className="task-detail-meta">
           <span className={`badge badge-${task.status}`}>{statusLabel(task.status)}</span>
           <span className={`badge badge-${task.priority}`}>{task.priority}</span>
+          {task.archived && <span className="badge badge-low">Archived</span>}
           {task.assignee_name && <span className="meta-item">Assigned to: {task.assignee_name}</span>}
+          {task.reporter_name && <span className="meta-item">Reporter: {task.reporter_name}</span>}
           {task.due_date && <span className="meta-item">Due: {task.due_date}</span>}
+          {task.start_date && <span className="meta-item">Start: {task.start_date}</span>}
+          {task.estimated_hours != null && <span className="meta-item">Est: {task.estimated_hours}h</span>}
+          {task.time_spent != null && task.time_spent > 0 && <span className="meta-item">Spent: {task.time_spent}h</span>}
         </div>
+
+        {task.labels && (
+          <div className="task-detail-labels">
+            {task.labels.split(',').map((l, i) => (
+              <span key={i} className="label-badge">{l.trim()}</span>
+            ))}
+          </div>
+        )}
 
         {task.description && (
           <div className="task-detail-desc">

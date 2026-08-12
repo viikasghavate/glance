@@ -50,7 +50,6 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
   };
 
   const priorityClass = (p) => `badge badge-${p}`;
-  const statusClass = (s) => `badge badge-${s}`;
 
   return (
     <div className="kanban">
@@ -73,7 +72,7 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
               {colTasks.map(task => (
                 <div
                   key={task.id}
-                  className="kanban-card"
+                  className={`kanban-card ${task.archived ? 'archived' : ''}`}
                   draggable
                   onDragStart={(e) => handleDragStart(e, task)}
                   onDragOver={handleTaskDragOver}
@@ -81,6 +80,13 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
                   onClick={() => onTaskClick(task)}
                 >
                   <div className="kanban-card-title">{task.title}</div>
+                  {task.labels && (
+                    <div className="kanban-card-labels">
+                      {task.labels.split(',').map((l, i) => (
+                        <span key={i} className="label-badge">{l.trim()}</span>
+                      ))}
+                    </div>
+                  )}
                   <div className="kanban-card-meta">
                     <span className={priorityClass(task.priority)}>{task.priority}</span>
                     {task.assignee_name && (
@@ -88,6 +94,9 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
                     )}
                     {task.due_date && (
                       <span className="due-date">{task.due_date}</span>
+                    )}
+                    {task.estimated_hours != null && (
+                      <span className="est-hours">{task.estimated_hours}h</span>
                     )}
                   </div>
                 </div>

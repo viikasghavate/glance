@@ -8,6 +8,13 @@ import TaskModal from '../components/TaskModal';
 import TaskDetailModal from '../components/TaskDetailModal';
 import './ProjectDetailPage.css';
 
+const statusLabels = {
+  active: 'Active',
+  on_hold: 'On Hold',
+  completed: 'Completed',
+  archived: 'Archived'
+};
+
 export default function ProjectDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -93,6 +100,19 @@ export default function ProjectDetailPage() {
           </button>
           <h1>{project.name}</h1>
           {project.description && <p className="project-desc">{project.description}</p>}
+          <div className="project-detail-meta">
+            <span className={`badge badge-${project.status === 'active' ? 'done' : project.status === 'on_hold' ? 'medium' : project.status === 'completed' ? 'done' : 'low'}`}>
+              {statusLabels[project.status] || project.status}
+            </span>
+            <span className={`badge badge-${project.priority}`}>{project.priority}</span>
+            {project.owner_name && <span className="meta-item">Owner: {project.owner_name}</span>}
+            <div className="progress-bar-inline">
+              <div className="progress-bar">
+                <div className="progress-fill" style={{ width: `${project.progress || 0}%` }} />
+              </div>
+              <span className="progress-text">{project.progress || 0}%</span>
+            </div>
+          </div>
         </div>
         <div className="view-actions">
           <button className="btn-primary" onClick={() => { setEditingTask(null); setShowTaskModal(true); }}>

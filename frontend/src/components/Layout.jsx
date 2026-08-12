@@ -85,7 +85,7 @@ export default function Layout() {
     projects, projectsLoading, refreshProjects,
     showProjectModal, openNewProjectModal, closeProjectModal,
     editingProject, setEditingProject,
-    view, setView, breadcrumb
+    view, setView, breadcrumb, users
   } = useUI();
   const navigate = useNavigate();
   const location = useLocation();
@@ -275,6 +275,7 @@ export default function Layout() {
       {showProjectModal && (
         <ProjectModal
           project={editingProject}
+          users={users}
           onClose={closeProjectModal}
           onSave={handleSaveProject}
         />

@@ -51,16 +51,24 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange }) 
             <thead>
               <tr>
                 <th>Title</th>
+                <th>Labels</th>
                 <th>Status</th>
                 <th>Priority</th>
                 <th>Assignee</th>
                 <th>Due Date</th>
+                <th>Est. Hours</th>
+                <th>Spent</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map(task => (
-                <tr key={task.id} onClick={() => onTaskClick(task)} className="task-row">
+                <tr key={task.id} onClick={() => onTaskClick(task)} className={`task-row ${task.archived ? 'archived' : ''}`}>
                   <td className="task-title-cell">{task.title}</td>
+                  <td>
+                    {task.labels ? task.labels.split(',').map((l, i) => (
+                      <span key={i} className="label-badge">{l.trim()}</span>
+                    )) : '-'}
+                  </td>
                   <td>
                     <select
                       value={task.status}
@@ -76,6 +84,8 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange }) 
                   <td><span className={`badge badge-${task.priority}`}>{task.priority}</span></td>
                   <td>{task.assignee_name || '-'}</td>
                   <td className="date-cell">{task.due_date || '-'}</td>
+                  <td className="date-cell">{task.estimated_hours != null ? `${task.estimated_hours}h` : '-'}</td>
+                  <td className="date-cell">{task.time_spent != null ? `${task.time_spent}h` : '-'}</td>
                 </tr>
               ))}
             </tbody>

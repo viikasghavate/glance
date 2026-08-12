@@ -12,9 +12,11 @@ router.get('/project/:projectId', (req, res) => {
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
   const tasks = db.prepare(`
-    SELECT t.*, u.name as assignee_name, u.email as assignee_email
+    SELECT t.*, u.name as assignee_name, u.email as assignee_email,
+           r.name as reporter_name, r.email as reporter_email
     FROM tasks t
     LEFT JOIN users u ON t.assignee_id = u.id
+    LEFT JOIN users r ON t.reporter_id = r.id
     WHERE t.project_id = ?
     ORDER BY t.position ASC, t.created_at DESC
   `).all(projectId);
@@ -27,7 +29,7 @@ router.post('/project/:projectId', (req, res) => {
   const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
-  const { title, description, status, priority, due_date, assignee_id } = req.body;
+  const { title, description, status, priority, due_date, assignee_id, labels, start_date, estimated_hours, time_spent, reporter_id, archived } = req.body;
   if (!title) return res.status(400).json({ error: 'title is required' });
 
   const maxPos = db.prepare(
@@ -35,8 +37,8 @@ router.post('/project/:projectId', (req, res) => {
   ).get(projectId, status || 'todo');
 
   const result = db.prepare(`
-    INSERT INTO tasks (project_id, title, description, status, priority, due_date, assignee_id, position)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO tasks (project_id, title, description, status, priority, due_date, assignee_id, position, labels, start_date, estimated_hours, time_spent, reporter_id, archived)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     projectId,
     title,
@@ -45,13 +47,21 @@ router.post('/project/:projectId', (req, res) => {
     priority || 'medium',
     due_date || null,
     assignee_id || null,
-    maxPos.maxPos + 1
+    maxPos.maxPos + 1,
+    labels || '',
+    start_date || null,
+    estimated_hours != null ? estimated_hours : null,
+    time_spent != null ? time_spent : 0,
+    reporter_id || null,
+    archived ? 1 : 0
   );
 
   const task = db.prepare(`
-    SELECT t.*, u.name as assignee_name, u.email as assignee_email
+    SELECT t.*, u.name as assignee_name, u.email as assignee_email,
+           r.name as reporter_name, r.email as reporter_email
     FROM tasks t
     LEFT JOIN users u ON t.assignee_id = u.id
+    LEFT JOIN users r ON t.reporter_id = r.id
     WHERE t.id = ?
   `).get(result.lastInsertRowid);
 
@@ -63,7 +73,7 @@ router.patch('/:id', (req, res) => {
   const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
-  const fields = ['title', 'description', 'status', 'priority', 'due_date', 'assignee_id', 'position'];
+  const fields = ['title', 'description', 'status', 'priority', 'due_date', 'assignee_id', 'position', 'labels', 'start_date', 'estimated_hours', 'time_spent', 'reporter_id', 'archived'];
   const updates = [];
   const values = [];
 
@@ -82,9 +92,11 @@ router.patch('/:id', (req, res) => {
   db.prepare(`UPDATE tasks SET ${updates.join(', ')} WHERE id = ?`).run(...values);
 
   const updated = db.prepare(`
-    SELECT t.*, u.name as assignee_name, u.email as assignee_email
+    SELECT t.*, u.name as assignee_name, u.email as assignee_email,
+           r.name as reporter_name, r.email as reporter_email
     FROM tasks t
     LEFT JOIN users u ON t.assignee_id = u.id
+    LEFT JOIN users r ON t.reporter_id = r.id
     WHERE t.id = ?
   `).get(id);
 
@@ -133,9 +145,11 @@ router.post('/:id/reorder', (req, res) => {
   txn();
 
   const updated = db.prepare(`
-    SELECT t.*, u.name as assignee_name, u.email as assignee_email
+    SELECT t.*, u.name as assignee_name, u.email as assignee_email,
+           r.name as reporter_name, r.email as reporter_email
     FROM tasks t
     LEFT JOIN users u ON t.assignee_id = u.id
+    LEFT JOIN users r ON t.reporter_id = r.id
     WHERE t.id = ?
   `).get(id);
 
