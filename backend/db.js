@@ -83,6 +83,11 @@ function migrate() {
     console.log('Migrated: users.role');
   }
 
+  if (!userCols.includes('last_login_at')) {
+    db.exec('ALTER TABLE users ADD COLUMN last_login_at TEXT');
+    console.log('Migrated: users.last_login_at');
+  }
+
   const projectMigrations = [
     { name: 'status', def: "TEXT DEFAULT 'active'" },
     { name: 'start_date', def: 'TEXT' },
