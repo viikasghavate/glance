@@ -4,24 +4,33 @@
   align-items: center;
   justify-content: center;
   padding: 1rem;
+  position: relative;
+  z-index: 1;
 }
 
 .login-card {
-  background: var(--bg-card);
+  background: rgba(20, 26, 40, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 2rem;
   width: 100%;
   max-width: 400px;
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow), var(--glow-cyan);
 }
 
 .login-logo {
   font-size: 1.75rem;
   font-weight: 700;
-  color: var(--primary);
+  background: linear-gradient(135deg, var(--cyan), var(--violet));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
   text-align: center;
   margin-bottom: 0.25rem;
+  font-family: 'Orbitron', 'Space Grotesk', sans-serif;
+  letter-spacing: 0.05em;
 }
 
 .login-subtitle {
@@ -48,7 +57,7 @@
 .btn-link {
   background: none;
   border: none;
-  color: var(--primary);
+  color: var(--cyan);
   font-size: 0.8125rem;
   padding: 0;
   text-decoration: underline;

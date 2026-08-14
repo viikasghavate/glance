@@ -17,15 +17,18 @@
 }
 
 .project-card {
-  background: var(--bg-card);
+  background: rgba(20, 26, 40, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .project-card:hover {
-  border-color: var(--primary);
+  border-color: var(--cyan);
+  box-shadow: var(--glow-cyan);
 }
 
 .project-card.archived {
@@ -50,7 +53,7 @@
 }
 
 .project-card-name:hover {
-  color: var(--primary);
+  color: var(--cyan);
   text-decoration: none;
 }
 
@@ -84,9 +87,9 @@
   border-radius: 50%;
 }
 
-.count-dot.todo { background: #60a5fa; }
-.count-dot.in_progress { background: var(--warning); }
-.count-dot.done { background: var(--success); }
+.count-dot.todo { background: var(--cyan); box-shadow: var(--glow-cyan); }
+.count-dot.in_progress { background: var(--warning); box-shadow: var(--glow-warning); }
+.count-dot.done { background: var(--success); box-shadow: var(--glow-success); }
 
 .project-card-meta {
   display: flex;
@@ -118,9 +121,10 @@
 
 .progress-fill {
   height: 100%;
-  background: var(--primary);
+  background: linear-gradient(90deg, var(--cyan), var(--violet));
   border-radius: 3px;
   transition: width 0.3s;
+  box-shadow: var(--glow-cyan);
 }
 
 .progress-text {

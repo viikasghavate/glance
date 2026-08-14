@@ -10,7 +10,7 @@
   border-radius: 50%;
   border: 2px solid transparent;
   padding: 0;
-  transition: border-color 0.15s, transform 0.15s;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
 }
 
 .color-swatch:hover {
@@ -19,5 +19,5 @@
 
 .color-swatch.selected {
   border-color: #fff;
-  box-shadow: 0 0 0 2px var(--primary);
+  box-shadow: 0 0 0 2px var(--cyan), var(--glow-cyan);
 }

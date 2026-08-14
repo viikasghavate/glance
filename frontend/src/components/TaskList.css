@@ -28,6 +28,7 @@
   letter-spacing: 0.03em;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border);
+  font-family: 'Orbitron', 'Space Grotesk', sans-serif;
 }
 
 .task-table td {
