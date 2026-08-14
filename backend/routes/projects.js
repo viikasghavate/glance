@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import db from '../db.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireRole } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -44,7 +44,7 @@ router.get('/', (req, res) => {
   res.json(result);
 });
 
-router.post('/', (req, res) => {
+router.post('/', requireRole('admin', 'member'), (req, res) => {
   const { name, description, color, status, start_date, due_date, owner_id, priority, progress } = req.body;
   if (!name) return res.status(400).json({ error: 'name is required' });
 
@@ -87,7 +87,7 @@ router.get('/:id', (req, res) => {
   res.json(project);
 });
 
-router.patch('/:id', (req, res) => {
+router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
   const { id } = req.params;
   const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
   if (!project) return res.status(404).json({ error: 'Project not found' });
@@ -119,7 +119,7 @@ router.patch('/:id', (req, res) => {
   res.json(updated);
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireRole('admin', 'member'), (req, res) => {
   const { id } = req.params;
   const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
   if (!project) return res.status(404).json({ error: 'Project not found' });

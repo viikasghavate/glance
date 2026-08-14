@@ -6,10 +6,11 @@ export function seed() {
   if (existing) return;
 
   const hash = bcrypt.hashSync('admin123', 10);
-  db.prepare('INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)').run(
+  db.prepare('INSERT INTO users (email, password_hash, name, role) VALUES (?, ?, ?, ?)').run(
     'admin@glance.local',
     hash,
-    'Admin'
+    'Admin',
+    'admin'
   );
   console.log('Seeded default admin user: admin@glance.local / admin123');
 }

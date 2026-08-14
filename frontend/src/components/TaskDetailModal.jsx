@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import './TaskDetailModal.css';
 
-export default function TaskDetailModal({ task, users, onClose, onUpdate, onDelete, apiFetch }) {
+export default function TaskDetailModal({ task, users, onClose, onUpdate, onDelete, apiFetch, readOnly }) {
   const [comments, setComments] = useState([]);
   const [commentBody, setCommentBody] = useState('');
   const [loadingComments, setLoadingComments] = useState(true);
@@ -78,18 +78,20 @@ export default function TaskDetailModal({ task, users, onClose, onUpdate, onDele
           </div>
         )}
 
-        <div className="task-detail-actions">
-          <select
-            value={task.status}
-            onChange={e => onUpdate({ status: e.target.value })}
-            className="status-select"
-          >
-            <option value="todo">To Do</option>
-            <option value="in_progress">In Progress</option>
-            <option value="done">Done</option>
-          </select>
-          <button className="btn-danger btn-sm" onClick={onDelete}>Delete Task</button>
-        </div>
+        {!readOnly && (
+          <div className="task-detail-actions">
+            <select
+              value={task.status}
+              onChange={e => onUpdate({ status: e.target.value })}
+              className="status-select"
+            >
+              <option value="todo">To Do</option>
+              <option value="in_progress">In Progress</option>
+              <option value="done">Done</option>
+            </select>
+            <button className="btn-danger btn-sm" onClick={onDelete}>Delete Task</button>
+          </div>
+        )}
 
         <div className="comments-section">
           <h4>Comments</h4>
@@ -110,17 +112,19 @@ export default function TaskDetailModal({ task, users, onClose, onUpdate, onDele
               ))}
             </div>
           )}
-          <form onSubmit={handleAddComment} className="comment-form">
-            <textarea
-              value={commentBody}
-              onChange={e => setCommentBody(e.target.value)}
-              placeholder="Add a comment..."
-              rows={2}
-            />
-            <button type="submit" className="btn-primary btn-sm" disabled={submitting || !commentBody.trim()}>
-              {submitting ? 'Posting...' : 'Post'}
-            </button>
-          </form>
+          {!readOnly && (
+            <form onSubmit={handleAddComment} className="comment-form">
+              <textarea
+                value={commentBody}
+                onChange={e => setCommentBody(e.target.value)}
+                placeholder="Add a comment..."
+                rows={2}
+              />
+              <button type="submit" className="btn-primary btn-sm" disabled={submitting || !commentBody.trim()}>
+                {submitting ? 'Posting...' : 'Post'}
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </div>

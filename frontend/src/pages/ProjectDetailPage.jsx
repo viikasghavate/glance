@@ -18,7 +18,7 @@ const statusLabels = {
 export default function ProjectDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { apiFetch } = useAuth();
+  const { apiFetch, hasRole } = useAuth();
   const { view, setBreadcrumb } = useUI();
   const [project, setProject] = useState(null);
   const [tasks, setTasks] = useState([]);
@@ -115,9 +115,11 @@ export default function ProjectDetailPage() {
           </div>
         </div>
         <div className="view-actions">
-          <button className="btn-primary" onClick={() => { setEditingTask(null); setShowTaskModal(true); }}>
-            + New Task
-          </button>
+          {!hasRole('viewer') && (
+            <button className="btn-primary" onClick={() => { setEditingTask(null); setShowTaskModal(true); }}>
+              + New Task
+            </button>
+          )}
         </div>
       </div>
 
@@ -128,6 +130,7 @@ export default function ProjectDetailPage() {
           onReorder={handleReorder}
           onTaskClick={setSelectedTask}
           onEditTask={(task) => { setEditingTask(task); setShowTaskModal(true); }}
+          readOnly={hasRole('viewer')}
         />
       ) : (
         <TaskList
@@ -156,6 +159,7 @@ export default function ProjectDetailPage() {
           onUpdate={(data) => handleTaskUpdate(selectedTask.id, data)}
           onDelete={() => handleTaskDelete(selectedTask.id)}
           apiFetch={apiFetch}
+          readOnly={hasRole('viewer')}
         />
       )}
     </div>

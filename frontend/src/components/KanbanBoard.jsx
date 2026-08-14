@@ -7,7 +7,7 @@ const COLUMNS = [
   { key: 'done', label: 'Done' }
 ];
 
-export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEditTask }) {
+export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEditTask, readOnly }) {
   const [dragOverCol, setDragOverCol] = useState(null);
 
   const getTasks = (status) => tasks.filter(t => t.status === status).sort((a, b) => a.position - b.position);
@@ -59,9 +59,9 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
           <div
             key={col.key}
             className={`kanban-col ${dragOverCol === col.key ? 'drag-over' : ''}`}
-            onDragOver={(e) => handleDragOver(e, col.key)}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, col.key)}
+            onDragOver={!readOnly ? (e) => handleDragOver(e, col.key) : undefined}
+            onDragLeave={!readOnly ? handleDragLeave : undefined}
+            onDrop={!readOnly ? (e) => handleDrop(e, col.key) : undefined}
           >
             <div className="kanban-col-header">
               <span className={`col-dot ${col.key}`} />
@@ -73,10 +73,10 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
                 <div
                   key={task.id}
                   className={`kanban-card ${task.archived ? 'archived' : ''}`}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, task)}
-                  onDragOver={handleTaskDragOver}
-                  onDrop={(e) => handleTaskDrop(e, task, col.key)}
+                  draggable={!readOnly}
+                  onDragStart={!readOnly ? (e) => handleDragStart(e, task) : undefined}
+                  onDragOver={!readOnly ? handleTaskDragOver : undefined}
+                  onDrop={!readOnly ? (e) => handleTaskDrop(e, task, col.key) : undefined}
                   onClick={() => onTaskClick(task)}
                 >
                   <div className="kanban-card-title">{task.title}</div>

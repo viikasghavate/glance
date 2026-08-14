@@ -12,7 +12,7 @@ const statusLabels = {
 };
 
 export default function ProjectListPage() {
-  const { apiFetch } = useAuth();
+  const { apiFetch, hasRole } = useAuth();
   const {
     projects, projectsLoading, refreshProjects,
     openNewProjectModal, openEditProjectModal
@@ -42,9 +42,11 @@ export default function ProjectListPage() {
     <div>
       <div className="page-header">
         <h1>Projects</h1>
-        <button className="btn-primary" onClick={openNewProjectModal}>
-          + New Project
-        </button>
+        {!hasRole('viewer') && (
+          <button className="btn-primary" onClick={openNewProjectModal}>
+            + New Project
+          </button>
+        )}
       </div>
 
       {projects.length === 0 ? (
@@ -75,13 +77,15 @@ export default function ProjectListPage() {
                   <span className="count-item"><span className="count-dot in_progress" /> {p.taskCounts?.in_progress || 0} In Progress</span>
                   <span className="count-item"><span className="count-dot done" /> {p.taskCounts?.done || 0} Done</span>
                 </div>
-                <div className="project-card-actions">
-                  <button className="btn-ghost btn-sm" onClick={() => openEditProjectModal(p)}>Edit</button>
-                  <button className="btn-ghost btn-sm" onClick={() => handleArchive(p)}>
-                    {p.archived ? 'Unarchive' : 'Archive'}
-                  </button>
-                  <button className="btn-danger btn-sm" onClick={() => handleDelete(p)}>Delete</button>
-                </div>
+                {!hasRole('viewer') && (
+                  <div className="project-card-actions">
+                    <button className="btn-ghost btn-sm" onClick={() => openEditProjectModal(p)}>Edit</button>
+                    <button className="btn-ghost btn-sm" onClick={() => handleArchive(p)}>
+                      {p.archived ? 'Unarchive' : 'Archive'}
+                    </button>
+                    <button className="btn-danger btn-sm" onClick={() => handleDelete(p)}>Delete</button>
+                  </div>
+                )}
               </div>
             </div>
           ))}

@@ -4,6 +4,7 @@ import { UIProvider } from './context/UIContext';
 import LoginPage from './pages/LoginPage';
 import ProjectListPage from './pages/ProjectListPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
+import UserManagementPage from './pages/UserManagementPage';
 import Layout from './components/Layout';
 
 function ProtectedRoute({ children }) {
@@ -20,6 +21,7 @@ export default function App() {
       <Route path="/" element={<ProtectedRoute><UIProvider><Layout /></UIProvider></ProtectedRoute>}>
         <Route index element={<ProjectListPage />} />
         <Route path="project/:id" element={<ProjectDetailPage />} />
+        <Route path="users" element={<UserManagementPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

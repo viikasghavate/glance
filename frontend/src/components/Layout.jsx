@@ -79,8 +79,17 @@ const IconChevronRight = () => (
   </svg>
 );
 
+const IconUsers = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
+
 export default function Layout() {
-  const { user, logout, apiFetch } = useAuth();
+  const { user, logout, apiFetch, hasRole } = useAuth();
   const {
     projects, projectsLoading, refreshProjects,
     showProjectModal, openNewProjectModal, closeProjectModal,
@@ -145,6 +154,11 @@ export default function Layout() {
           <button className="icon-rail-btn" title="Goals">
             <IconGoals />
           </button>
+          {hasRole('admin') && (
+            <Link to="/users" className={`icon-rail-btn ${location.pathname === '/users' ? 'active' : ''}`} title="Members">
+              <IconUsers />
+            </Link>
+          )}
           <div className="icon-rail-spacer" />
           <button className="icon-rail-btn" title="Settings">
             <IconSettings />
@@ -176,9 +190,11 @@ export default function Layout() {
       <aside className="project-nav">
         <div className="project-nav-header">
           <span className="project-nav-workspace">Glance</span>
-          <button className="project-nav-new-btn" onClick={openNewProjectModal} title="New Project">
-            <IconPlus /> New
-          </button>
+          {!hasRole('viewer') && (
+            <button className="project-nav-new-btn" onClick={openNewProjectModal} title="New Project">
+              <IconPlus /> New
+            </button>
+          )}
         </div>
 
         <div className="project-nav-section-label">
@@ -207,11 +223,13 @@ export default function Layout() {
           )}
         </div>
 
-        <div className="project-nav-footer">
-          <button className="project-nav-add-link" onClick={openNewProjectModal}>
-            <IconPlus /> New Project
-          </button>
-        </div>
+        {!hasRole('viewer') && (
+          <div className="project-nav-footer">
+            <button className="project-nav-add-link" onClick={openNewProjectModal}>
+              <IconPlus /> New Project
+            </button>
+          </div>
+        )}
       </aside>
 
       {/* Column 3+4: Main Area (Top Bar + Content) */}

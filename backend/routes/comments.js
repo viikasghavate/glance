@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import db from '../db.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireRole } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -18,7 +18,7 @@ router.get('/task/:taskId', (req, res) => {
   res.json(comments);
 });
 
-router.post('/task/:taskId', (req, res) => {
+router.post('/task/:taskId', requireRole('admin', 'member'), (req, res) => {
   const { taskId } = req.params;
   const { body } = req.body;
   if (!body) return res.status(400).json({ error: 'body is required' });

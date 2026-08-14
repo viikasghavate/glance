@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import db from '../db.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireRole } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -24,7 +24,7 @@ router.get('/project/:projectId', (req, res) => {
   res.json(tasks);
 });
 
-router.post('/project/:projectId', (req, res) => {
+router.post('/project/:projectId', requireRole('admin', 'member'), (req, res) => {
   const { projectId } = req.params;
   const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
@@ -68,7 +68,7 @@ router.post('/project/:projectId', (req, res) => {
   res.status(201).json(task);
 });
 
-router.patch('/:id', (req, res) => {
+router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
   const { id } = req.params;
   const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
@@ -103,7 +103,7 @@ router.patch('/:id', (req, res) => {
   res.json(updated);
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireRole('admin', 'member'), (req, res) => {
   const { id } = req.params;
   const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
@@ -112,7 +112,7 @@ router.delete('/:id', (req, res) => {
   res.json({ success: true });
 });
 
-router.post('/:id/reorder', (req, res) => {
+router.post('/:id/reorder', requireRole('admin', 'member'), (req, res) => {
   const { id } = req.params;
   const { status, position } = req.body;
 

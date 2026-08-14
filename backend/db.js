@@ -20,6 +20,7 @@ db.exec(`
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     name TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'member',
     created_at TEXT DEFAULT (datetime('now'))
   );
 
@@ -73,8 +74,14 @@ db.exec(`
 `);
 
 function migrate() {
+  const userCols = db.pragma('table_info(users)').map(r => r.name);
   const projectCols = db.pragma('table_info(projects)').map(r => r.name);
   const taskCols = db.pragma('table_info(tasks)').map(r => r.name);
+
+  if (!userCols.includes('role')) {
+    db.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'member'");
+    console.log('Migrated: users.role');
+  }
 
   const projectMigrations = [
     { name: 'status', def: "TEXT DEFAULT 'active'" },
