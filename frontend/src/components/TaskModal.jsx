@@ -1,6 +1,22 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
-export default function TaskModal({ task, users, projectId, onClose, onSave }) {
+function getDescendantIds(taskId, allTasks) {
+  const ids = new Set();
+  const queue = [taskId];
+  while (queue.length > 0) {
+    const current = queue.shift();
+    const children = allTasks.filter(t => t.parent_id === current);
+    for (const child of children) {
+      if (!ids.has(child.id)) {
+        ids.add(child.id);
+        queue.push(child.id);
+      }
+    }
+  }
+  return ids;
+}
+
+export default function TaskModal({ task, users, projectId, tasks, onClose, onSave }) {
   const [title, setTitle] = useState(task?.title || '');
   const [description, setDescription] = useState(task?.description || '');
   const [status, setStatus] = useState(task?.status || 'todo');
@@ -13,7 +29,19 @@ export default function TaskModal({ task, users, projectId, onClose, onSave }) {
   const [timeSpent, setTimeSpent] = useState(task?.time_spent ?? 0);
   const [reporterId, setReporterId] = useState(task?.reporter_id || '');
   const [archived, setArchived] = useState(!!task?.archived);
+  const [parentId, setParentId] = useState(task?.parent_id || '');
   const [submitting, setSubmitting] = useState(false);
+
+  const eligibleParents = useMemo(() => {
+    if (!tasks) return [];
+    const excludeIds = new Set();
+    if (task) {
+      excludeIds.add(task.id);
+      const descendants = getDescendantIds(task.id, tasks);
+      descendants.forEach(id => excludeIds.add(id));
+    }
+    return tasks.filter(t => !excludeIds.has(t.id));
+  }, [tasks, task]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,7 +60,8 @@ export default function TaskModal({ task, users, projectId, onClose, onSave }) {
         estimated_hours: estimatedHours !== '' ? Number(estimatedHours) : null,
         time_spent: Number(timeSpent),
         reporter_id: reporterId ? Number(reporterId) : null,
-        archived: archived ? 1 : 0
+        archived: archived ? 1 : 0,
+        parent_id: parentId ? Number(parentId) : null
       });
     } catch (err) {
       console.error(err);
@@ -53,6 +82,15 @@ export default function TaskModal({ task, users, projectId, onClose, onSave }) {
           <div className="form-group">
             <label htmlFor="tdesc">Description</label>
             <textarea id="tdesc" value={description} onChange={e => setDescription(e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label htmlFor="tparent">Parent Task</label>
+            <select id="tparent" value={parentId} onChange={e => setParentId(e.target.value)}>
+              <option value="">None (top-level task)</option>
+              {eligibleParents.map(t => (
+                <option key={t.id} value={t.id}>{t.title}</option>
+              ))}
+            </select>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
             <div className="form-group">

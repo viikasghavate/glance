@@ -6,6 +6,22 @@ const router = Router();
 
 router.use(requireAuth);
 
+function getDescendantIds(taskId) {
+  const ids = new Set();
+  const queue = [taskId];
+  while (queue.length > 0) {
+    const current = queue.shift();
+    const children = db.prepare('SELECT id FROM tasks WHERE parent_id = ?').all(current);
+    for (const child of children) {
+      if (!ids.has(child.id)) {
+        ids.add(child.id);
+        queue.push(child.id);
+      }
+    }
+  }
+  return ids;
+}
+
 router.get('/project/:projectId', (req, res) => {
   const { projectId } = req.params;
   const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
@@ -13,7 +29,8 @@ router.get('/project/:projectId', (req, res) => {
 
   const tasks = db.prepare(`
     SELECT t.*, u.name as assignee_name, u.email as assignee_email,
-           r.name as reporter_name, r.email as reporter_email
+           r.name as reporter_name, r.email as reporter_email,
+           (SELECT COUNT(*) FROM tasks WHERE parent_id = t.id) as subtask_count
     FROM tasks t
     LEFT JOIN users u ON t.assignee_id = u.id
     LEFT JOIN users r ON t.reporter_id = r.id
@@ -29,16 +46,22 @@ router.post('/project/:projectId', requireRole('admin', 'member'), (req, res) =>
   const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
-  const { title, description, status, priority, due_date, assignee_id, labels, start_date, estimated_hours, time_spent, reporter_id, archived } = req.body;
+  const { title, description, status, priority, due_date, assignee_id, labels, start_date, estimated_hours, time_spent, reporter_id, archived, parent_id } = req.body;
   if (!title) return res.status(400).json({ error: 'title is required' });
+
+  if (parent_id != null) {
+    const parent = db.prepare('SELECT * FROM tasks WHERE id = ?').get(parent_id);
+    if (!parent) return res.status(400).json({ error: 'Parent task not found' });
+    if (parent.project_id !== Number(projectId)) return res.status(400).json({ error: 'Parent task must belong to the same project' });
+  }
 
   const maxPos = db.prepare(
     'SELECT COALESCE(MAX(position), -1) as maxPos FROM tasks WHERE project_id = ? AND status = ?'
   ).get(projectId, status || 'todo');
 
   const result = db.prepare(`
-    INSERT INTO tasks (project_id, title, description, status, priority, due_date, assignee_id, position, labels, start_date, estimated_hours, time_spent, reporter_id, archived)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO tasks (project_id, title, description, status, priority, due_date, assignee_id, position, labels, start_date, estimated_hours, time_spent, reporter_id, archived, parent_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     projectId,
     title,
@@ -53,12 +76,14 @@ router.post('/project/:projectId', requireRole('admin', 'member'), (req, res) =>
     estimated_hours != null ? estimated_hours : null,
     time_spent != null ? time_spent : 0,
     reporter_id || null,
-    archived ? 1 : 0
+    archived ? 1 : 0,
+    parent_id || null
   );
 
   const task = db.prepare(`
     SELECT t.*, u.name as assignee_name, u.email as assignee_email,
-           r.name as reporter_name, r.email as reporter_email
+           r.name as reporter_name, r.email as reporter_email,
+           (SELECT COUNT(*) FROM tasks WHERE parent_id = t.id) as subtask_count
     FROM tasks t
     LEFT JOIN users u ON t.assignee_id = u.id
     LEFT JOIN users r ON t.reporter_id = r.id
@@ -73,7 +98,23 @@ router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
   const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
-  const fields = ['title', 'description', 'status', 'priority', 'due_date', 'assignee_id', 'position', 'labels', 'start_date', 'estimated_hours', 'time_spent', 'reporter_id', 'archived'];
+  if (req.body.parent_id !== undefined) {
+    const newParentId = req.body.parent_id;
+    if (newParentId != null) {
+      if (Number(newParentId) === Number(id)) {
+        return res.status(400).json({ error: 'A task cannot be its own parent' });
+      }
+      const parent = db.prepare('SELECT * FROM tasks WHERE id = ?').get(newParentId);
+      if (!parent) return res.status(400).json({ error: 'Parent task not found' });
+      if (parent.project_id !== task.project_id) return res.status(400).json({ error: 'Parent task must belong to the same project' });
+      const descendants = getDescendantIds(Number(id));
+      if (descendants.has(Number(newParentId))) {
+        return res.status(400).json({ error: 'Cannot set a descendant as parent (cycle detected)' });
+      }
+    }
+  }
+
+  const fields = ['title', 'description', 'status', 'priority', 'due_date', 'assignee_id', 'position', 'labels', 'start_date', 'estimated_hours', 'time_spent', 'reporter_id', 'archived', 'parent_id'];
   const updates = [];
   const values = [];
 
@@ -93,7 +134,8 @@ router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
 
   const updated = db.prepare(`
     SELECT t.*, u.name as assignee_name, u.email as assignee_email,
-           r.name as reporter_name, r.email as reporter_email
+           r.name as reporter_name, r.email as reporter_email,
+           (SELECT COUNT(*) FROM tasks WHERE parent_id = t.id) as subtask_count
     FROM tasks t
     LEFT JOIN users u ON t.assignee_id = u.id
     LEFT JOIN users r ON t.reporter_id = r.id
@@ -108,6 +150,7 @@ router.delete('/:id', requireRole('admin', 'member'), (req, res) => {
   const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
+  db.prepare('UPDATE tasks SET parent_id = NULL WHERE parent_id = ?').run(id);
   db.prepare('DELETE FROM tasks WHERE id = ?').run(id);
   res.json({ success: true });
 });
@@ -146,7 +189,8 @@ router.post('/:id/reorder', requireRole('admin', 'member'), (req, res) => {
 
   const updated = db.prepare(`
     SELECT t.*, u.name as assignee_name, u.email as assignee_email,
-           r.name as reporter_name, r.email as reporter_email
+           r.name as reporter_name, r.email as reporter_email,
+           (SELECT COUNT(*) FROM tasks WHERE parent_id = t.id) as subtask_count
     FROM tasks t
     LEFT JOIN users u ON t.assignee_id = u.id
     LEFT JOIN users r ON t.reporter_id = r.id

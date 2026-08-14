@@ -113,3 +113,50 @@
   flex-shrink: 0;
   margin-top: 0.125rem;
 }
+
+.task-detail-relations {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.relation-section h4 {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 0.375rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.relation-select {
+  width: 100%;
+  font-size: 0.8125rem;
+}
+
+.relation-link {
+  font-size: 0.8125rem;
+  color: var(--primary);
+}
+
+.subtask-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.subtask-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  padding: 0.25rem 0;
+}
+
+.subtask-item-title {
+  color: var(--text-muted);
+}

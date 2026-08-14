@@ -1,11 +1,29 @@
 import { useState, useEffect } from 'react';
 import './TaskDetailModal.css';
 
-export default function TaskDetailModal({ task, users, onClose, onUpdate, onDelete, apiFetch, readOnly }) {
+export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate, onDelete, apiFetch, readOnly }) {
   const [comments, setComments] = useState([]);
   const [commentBody, setCommentBody] = useState('');
   const [loadingComments, setLoadingComments] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [parentId, setParentId] = useState(task.parent_id || '');
+
+  const parentTask = tasks?.find(t => t.id === task.parent_id) || null;
+  const subtasks = tasks?.filter(t => t.parent_id === task.id) || [];
+
+  const eligibleParents = (tasks || []).filter(t => {
+    if (t.id === task.id) return false;
+    const checkDescendant = (id) => {
+      const children = tasks.filter(c => c.parent_id === id);
+      for (const child of children) {
+        if (child.id === t.id) return true;
+        if (checkDescendant(child.id)) return true;
+      }
+      return false;
+    };
+    if (checkDescendant(task.id)) return false;
+    return true;
+  });
 
   const fetchComments = async () => {
     try {
@@ -36,6 +54,12 @@ export default function TaskDetailModal({ task, users, onClose, onUpdate, onDele
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleParentChange = (e) => {
+    const val = e.target.value;
+    setParentId(val);
+    onUpdate({ parent_id: val ? Number(val) : null });
   };
 
   const statusLabel = (s) => {
@@ -70,6 +94,41 @@ export default function TaskDetailModal({ task, users, onClose, onUpdate, onDele
             ))}
           </div>
         )}
+
+        <div className="task-detail-relations">
+          <div className="relation-section">
+            <h4>Parent Task</h4>
+            {readOnly ? (
+              parentTask ? (
+                <span className="relation-link">{parentTask.title}</span>
+              ) : (
+                <span className="empty">None</span>
+              )
+            ) : (
+              <select value={parentId} onChange={handleParentChange} className="relation-select">
+                <option value="">None (top-level task)</option>
+                {eligibleParents.map(t => (
+                  <option key={t.id} value={t.id}>{t.title}</option>
+                ))}
+              </select>
+            )}
+          </div>
+          <div className="relation-section">
+            <h4>Subtasks ({subtasks.length})</h4>
+            {subtasks.length === 0 ? (
+              <span className="empty">No subtasks</span>
+            ) : (
+              <div className="subtask-list">
+                {subtasks.map(st => (
+                  <div key={st.id} className="subtask-item">
+                    <span className={`badge badge-${st.status}`}>{statusLabel(st.status)}</span>
+                    <span className="subtask-item-title">{st.title}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
 
         {task.description && (
           <div className="task-detail-desc">

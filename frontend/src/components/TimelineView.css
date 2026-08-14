@@ -259,3 +259,8 @@
     min-width: 200px;
   }
 }
+
+.timeline-row.subtask-row .timeline-task-name {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}

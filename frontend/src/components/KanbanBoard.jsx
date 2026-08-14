@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import './KanbanBoard.css';
 
 const COLUMNS = [
@@ -9,8 +9,41 @@ const COLUMNS = [
 
 export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEditTask, readOnly }) {
   const [dragOverCol, setDragOverCol] = useState(null);
+  const [collapsed, setCollapsed] = useState({});
 
-  const getTasks = (status) => tasks.filter(t => t.status === status).sort((a, b) => a.position - b.position);
+  const toggleCollapse = (id) => {
+    setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const tree = useMemo(() => {
+    const taskMap = {};
+    const roots = [];
+    tasks.forEach(t => { taskMap[t.id] = { ...t, children: [] }; });
+    tasks.forEach(t => {
+      if (t.parent_id && taskMap[t.parent_id]) {
+        taskMap[t.parent_id].children.push(taskMap[t.id]);
+      } else {
+        roots.push(taskMap[t.id]);
+      }
+    });
+    return roots;
+  }, [tasks]);
+
+  const flattenTree = (nodes, depth = 0) => {
+    const result = [];
+    for (const node of nodes) {
+      result.push({ ...node, depth, hasChildren: node.children.length > 0 });
+      if (!collapsed[node.id]) {
+        result.push(...flattenTree(node.children, depth + 1));
+      }
+    }
+    return result;
+  };
+
+  const getTasks = (status) => {
+    const flat = flattenTree(tree);
+    return flat.filter(t => t.status === status).sort((a, b) => a.position - b.position);
+  };
 
   const handleDragStart = (e, task) => {
     e.dataTransfer.setData('text/plain', JSON.stringify({ taskId: task.id, status: task.status, position: task.position }));
@@ -72,14 +105,27 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
               {colTasks.map(task => (
                 <div
                   key={task.id}
-                  className={`kanban-card ${task.archived ? 'archived' : ''}`}
+                  className={`kanban-card ${task.archived ? 'archived' : ''} ${task.depth > 0 ? 'subtask-card' : ''}`}
                   draggable={!readOnly}
                   onDragStart={!readOnly ? (e) => handleDragStart(e, task) : undefined}
                   onDragOver={!readOnly ? handleTaskDragOver : undefined}
                   onDrop={!readOnly ? (e) => handleTaskDrop(e, task, col.key) : undefined}
                   onClick={() => onTaskClick(task)}
+                  style={{ marginLeft: task.depth > 0 ? `${task.depth * 1}rem` : undefined }}
                 >
-                  <div className="kanban-card-title">{task.title}</div>
+                  <div className="kanban-card-title">
+                    {task.hasChildren ? (
+                      <span className="subtask-toggle" onClick={e => { e.stopPropagation(); toggleCollapse(task.id); }}>
+                        {collapsed[task.id] ? '▶' : '▼'}
+                      </span>
+                    ) : task.depth > 0 ? (
+                      <span className="subtask-toggle" style={{ visibility: 'hidden' }}>▶</span>
+                    ) : null}
+                    {task.title}
+                    {task.subtask_count > 0 && (
+                      <span className="subtask-count">{task.subtask_count}</span>
+                    )}
+                  </div>
                   {task.labels && (
                     <div className="kanban-card-labels">
                       {task.labels.split(',').map((l, i) => (

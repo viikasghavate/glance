@@ -198,6 +198,17 @@ export default function TimelineView({ tasks, users, onTaskClick }) {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
+  const getDepth = (task) => {
+    let depth = 0;
+    let current = task;
+    while (current.parent_id) {
+      depth++;
+      current = tasks.find(t => t.id === current.parent_id);
+      if (!current) break;
+    }
+    return depth;
+  };
+
   const timelineWidth = totalDays * dayWidth;
   const leftWidth = 320;
 
@@ -246,14 +257,15 @@ export default function TimelineView({ tasks, users, onTaskClick }) {
                 </div>
                 {group.tasks.map((task) => {
                   const barStyle = getBarStyle(task);
+                  const depth = getDepth(task);
                   return (
                     <div
                       key={task.id}
-                      className="timeline-row"
+                      className={`timeline-row ${depth > 0 ? 'subtask-row' : ''}`}
                       onClick={() => onTaskClick(task)}
                     >
                       <div className="timeline-row-left">
-                        <div className="timeline-task-info">
+                        <div className="timeline-task-info" style={{ paddingLeft: `${depth * 1}rem` }}>
                           <span className="timeline-task-name">{task.title}</span>
                           <span className="timeline-task-meta">
                             <span className={`badge badge-${task.priority}`}>{task.priority}</span>

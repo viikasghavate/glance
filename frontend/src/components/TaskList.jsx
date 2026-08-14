@@ -5,15 +5,52 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange }) 
   const [filterStatus, setFilterStatus] = useState('');
   const [filterPriority, setFilterPriority] = useState('');
   const [filterAssignee, setFilterAssignee] = useState('');
+  const [collapsed, setCollapsed] = useState({});
 
-  const filtered = useMemo(() => {
-    return tasks.filter(t => {
-      if (filterStatus && t.status !== filterStatus) return false;
-      if (filterPriority && t.priority !== filterPriority) return false;
-      if (filterAssignee && String(t.assignee_id) !== filterAssignee) return false;
-      return true;
+  const toggleCollapse = (id) => {
+    setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const tree = useMemo(() => {
+    const taskMap = {};
+    const roots = [];
+    tasks.forEach(t => { taskMap[t.id] = { ...t, children: [] }; });
+    tasks.forEach(t => {
+      if (t.parent_id && taskMap[t.parent_id]) {
+        taskMap[t.parent_id].children.push(taskMap[t.id]);
+      } else {
+        roots.push(taskMap[t.id]);
+      }
     });
-  }, [tasks, filterStatus, filterPriority, filterAssignee]);
+    return roots;
+  }, [tasks]);
+
+  const matchesFilter = (t) => {
+    if (filterStatus && t.status !== filterStatus) return false;
+    if (filterPriority && t.priority !== filterPriority) return false;
+    if (filterAssignee && String(t.assignee_id) !== filterAssignee) return false;
+    return true;
+  };
+
+  const flattenTree = (nodes, depth = 0) => {
+    const result = [];
+    for (const node of nodes) {
+      const matches = matchesFilter(node);
+      const hasMatchingDescendant = node.children.length > 0 && node.children.some(c => {
+        const check = (n) => matchesFilter(n) || n.children.some(check);
+        return check(c);
+      });
+      if (matches || hasMatchingDescendant) {
+        result.push({ ...node, depth, hasChildren: node.children.length > 0 });
+        if (!collapsed[node.id]) {
+          result.push(...flattenTree(node.children, depth + 1));
+        }
+      }
+    }
+    return result;
+  };
+
+  const filtered = useMemo(() => flattenTree(tree), [tree, filterStatus, filterPriority, filterAssignee, collapsed]);
 
   const statusLabel = (s) => {
     const map = { todo: 'To Do', in_progress: 'In Progress', done: 'Done' };
@@ -62,8 +99,20 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange }) 
             </thead>
             <tbody>
               {filtered.map(task => (
-                <tr key={task.id} onClick={() => onTaskClick(task)} className={`task-row ${task.archived ? 'archived' : ''}`}>
-                  <td className="task-title-cell">{task.title}</td>
+                <tr key={task.id} onClick={() => onTaskClick(task)} className={`task-row ${task.archived ? 'archived' : ''} ${task.depth > 0 ? 'subtask-row' : ''}`}>
+                  <td className="task-title-cell" style={{ paddingLeft: `${0.75 + task.depth * 1.5}rem` }}>
+                    {task.hasChildren ? (
+                      <span className="subtask-toggle" onClick={e => { e.stopPropagation(); toggleCollapse(task.id); }}>
+                        {collapsed[task.id] ? '▶' : '▼'}
+                      </span>
+                    ) : task.depth > 0 ? (
+                      <span className="subtask-toggle" style={{ visibility: 'hidden' }}>▶</span>
+                    ) : null}
+                    {task.title}
+                    {task.subtask_count > 0 && (
+                      <span className="subtask-count">{task.subtask_count}</span>
+                    )}
+                  </td>
                   <td>
                     {task.labels ? task.labels.split(',').map((l, i) => (
                       <span key={i} className="label-badge">{l.trim()}</span>

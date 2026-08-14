@@ -56,10 +56,12 @@ db.exec(`
     time_spent REAL DEFAULT 0,
     reporter_id INTEGER,
     archived INTEGER DEFAULT 0,
+    parent_id INTEGER,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-    FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE SET NULL
+    FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (parent_id) REFERENCES tasks(id) ON DELETE SET NULL
   );
 
   CREATE TABLE IF NOT EXISTS comments (
@@ -104,6 +106,7 @@ function migrate() {
     { name: 'time_spent', def: 'REAL DEFAULT 0' },
     { name: 'reporter_id', def: 'INTEGER' },
     { name: 'archived', def: 'INTEGER DEFAULT 0' },
+    { name: 'parent_id', def: 'INTEGER REFERENCES tasks(id) ON DELETE SET NULL' },
   ];
 
   for (const col of projectMigrations) {

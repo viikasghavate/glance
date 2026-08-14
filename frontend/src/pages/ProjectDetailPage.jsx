@@ -155,6 +155,7 @@ export default function ProjectDetailPage() {
           task={editingTask}
           users={users}
           projectId={id}
+          tasks={tasks}
           onClose={() => { setShowTaskModal(false); setEditingTask(null); }}
           onSave={handleTaskSave}
         />
@@ -163,6 +164,7 @@ export default function ProjectDetailPage() {
       {selectedTask && (
         <TaskDetailModal
           task={selectedTask}
+          tasks={tasks}
           users={users}
           onClose={() => setSelectedTask(null)}
           onUpdate={(data) => handleTaskUpdate(selectedTask.id, data)}
