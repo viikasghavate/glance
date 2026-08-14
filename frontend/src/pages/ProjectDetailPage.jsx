@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useUI } from '../context/UIContext';
 import KanbanBoard from '../components/KanbanBoard';
 import TaskList from '../components/TaskList';
+import TimelineView from '../components/TimelineView';
 import TaskModal from '../components/TaskModal';
 import TaskDetailModal from '../components/TaskDetailModal';
 import './ProjectDetailPage.css';
@@ -123,7 +124,7 @@ export default function ProjectDetailPage() {
         </div>
       </div>
 
-      {view === 'board' ? (
+      {view === 'board' && (
         <KanbanBoard
           tasks={tasks}
           users={users}
@@ -132,12 +133,20 @@ export default function ProjectDetailPage() {
           onEditTask={(task) => { setEditingTask(task); setShowTaskModal(true); }}
           readOnly={hasRole('viewer')}
         />
-      ) : (
+      )}
+      {view === 'list' && (
         <TaskList
           tasks={tasks}
           users={users}
           onTaskClick={setSelectedTask}
           onStatusChange={(taskId, status) => handleTaskUpdate(taskId, { status })}
+        />
+      )}
+      {view === 'timeline' && (
+        <TimelineView
+          tasks={tasks}
+          users={users}
+          onTaskClick={setSelectedTask}
         />
       )}
 

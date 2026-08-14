@@ -259,6 +259,7 @@ export default function Layout() {
               <div className="view-toggle-top">
                 <button className={view === 'board' ? 'active' : ''} onClick={() => setView('board')}>Board</button>
                 <button className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>List</button>
+                <button className={view === 'timeline' ? 'active' : ''} onClick={() => setView('timeline')}>Timeline</button>
               </div>
             )}
           </div>
