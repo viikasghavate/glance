@@ -109,7 +109,7 @@
 
 .project-nav-new-btn:hover {
   background: linear-gradient(135deg, #00d4f0, #7c4de0);
-  box-shadow: 0 0 18px rgba(0, 229, 255, 0.5);
+  box-shadow: 0 0 18px rgba(0, 229, 255, 0.5), 0 0 36px rgba(0, 229, 255, 0.2);
 }
 
 .project-nav-new-btn svg {
