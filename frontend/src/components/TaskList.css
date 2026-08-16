@@ -14,25 +14,37 @@
 }
 
 .task-table {
-  width: 100%;
-  border-collapse: collapse;
+  display: flex;
+  flex-direction: column;
+  min-width: 1156px;
   font-size: 0.875rem;
 }
 
-.task-table th {
-  text-align: left;
-  padding: 0.625rem 0.75rem;
+.task-table-row {
+  display: grid;
+  grid-template-columns: 28% 16% 12% 10% 12% 10% 6% 6%;
+  align-items: center;
+}
+
+.task-table-head {
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border);
-  font-family: 'Orbitron', 'Space Grotesk', sans-serif;
 }
 
-.task-table td {
+.task-table-cell {
   padding: 0.625rem 0.75rem;
+  text-align: left;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-table-row:not(.task-table-head) {
   border-bottom: 1px solid var(--border);
 }
 

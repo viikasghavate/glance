@@ -270,7 +270,7 @@
   gap: 0.75rem;
   flex: 1;
   justify-content: center;
-  max-width: 400px;
+  min-width: 0;
 }
 
 .search-input {
@@ -386,6 +386,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .view-toggle-top button {

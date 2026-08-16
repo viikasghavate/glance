@@ -84,61 +84,57 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange }) 
         <div className="empty">No tasks match the filters.</div>
       ) : (
         <div className="task-table-wrap">
-          <table className="task-table">
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Labels</th>
-                <th>Status</th>
-                <th>Priority</th>
-                <th>Assignee</th>
-                <th>Due Date</th>
-                <th>Est. Hours</th>
-                <th>Spent</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(task => (
-                <tr key={task.id} onClick={() => onTaskClick(task)} className={`task-row ${task.archived ? 'archived' : ''} ${task.depth > 0 ? 'subtask-row' : ''}`}>
-                  <td className="task-title-cell" style={{ paddingLeft: `${0.75 + task.depth * 1.5}rem` }}>
-                    {task.hasChildren ? (
-                      <span className="subtask-toggle" onClick={e => { e.stopPropagation(); toggleCollapse(task.id); }}>
-                        {collapsed[task.id] ? '▶' : '▼'}
-                      </span>
-                    ) : task.depth > 0 ? (
-                      <span className="subtask-toggle" style={{ visibility: 'hidden' }}>▶</span>
-                    ) : null}
-                    {task.title}
-                    {task.subtask_count > 0 && (
-                      <span className="subtask-count">{task.subtask_count}</span>
-                    )}
-                  </td>
-                  <td>
-                    {task.labels ? task.labels.split(',').map((l, i) => (
-                      <span key={i} className="label-badge">{l.trim()}</span>
-                    )) : '-'}
-                  </td>
-                  <td>
-                    <select
-                      value={task.status}
-                      onClick={e => e.stopPropagation()}
-                      onChange={e => onStatusChange(task.id, e.target.value)}
-                      className="status-select"
-                    >
-                      <option value="todo">To Do</option>
-                      <option value="in_progress">In Progress</option>
-                      <option value="done">Done</option>
-                    </select>
-                  </td>
-                  <td><span className={`badge badge-${task.priority}`}>{task.priority}</span></td>
-                  <td>{task.assignee_name || '-'}</td>
-                  <td className="date-cell">{task.due_date || '-'}</td>
-                  <td className="date-cell">{task.estimated_hours != null ? `${task.estimated_hours}h` : '-'}</td>
-                  <td className="date-cell">{task.time_spent != null ? `${task.time_spent}h` : '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="task-table">
+            <div className="task-table-head task-table-row">
+              <div className="task-table-cell">Title</div>
+              <div className="task-table-cell">Labels</div>
+              <div className="task-table-cell">Status</div>
+              <div className="task-table-cell">Priority</div>
+              <div className="task-table-cell">Assignee</div>
+              <div className="task-table-cell">Due Date</div>
+              <div className="task-table-cell">Est. Hours</div>
+              <div className="task-table-cell">Spent</div>
+            </div>
+            {filtered.map(task => (
+              <div key={task.id} onClick={() => onTaskClick(task)} className={`task-table-row task-row ${task.archived ? 'archived' : ''} ${task.depth > 0 ? 'subtask-row' : ''}`}>
+                <div className="task-table-cell task-title-cell" style={{ paddingLeft: `${0.75 + task.depth * 1.5}rem` }}>
+                  {task.hasChildren ? (
+                    <span className="subtask-toggle" onClick={e => { e.stopPropagation(); toggleCollapse(task.id); }}>
+                      {collapsed[task.id] ? '▶' : '▼'}
+                    </span>
+                  ) : task.depth > 0 ? (
+                    <span className="subtask-toggle" style={{ visibility: 'hidden' }}>▶</span>
+                  ) : null}
+                  {task.title}
+                  {task.subtask_count > 0 && (
+                    <span className="subtask-count">{task.subtask_count}</span>
+                  )}
+                </div>
+                <div className="task-table-cell">
+                  {task.labels ? task.labels.split(',').map((l, i) => (
+                    <span key={i} className="label-badge">{l.trim()}</span>
+                  )) : '-'}
+                </div>
+                <div className="task-table-cell">
+                  <select
+                    value={task.status}
+                    onClick={e => e.stopPropagation()}
+                    onChange={e => onStatusChange(task.id, e.target.value)}
+                    className="status-select"
+                  >
+                    <option value="todo">To Do</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="done">Done</option>
+                  </select>
+                </div>
+                <div className="task-table-cell"><span className={`badge badge-${task.priority}`}>{task.priority}</span></div>
+                <div className="task-table-cell">{task.assignee_name || '-'}</div>
+                <div className="task-table-cell date-cell">{task.due_date || '-'}</div>
+                <div className="task-table-cell date-cell">{task.estimated_hours != null ? `${task.estimated_hours}h` : '-'}</div>
+                <div className="task-table-cell date-cell">{task.time_spent != null ? `${task.time_spent}h` : '-'}</div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
