@@ -11,6 +11,7 @@ import commentRoutes from './routes/comments.js';
 import userRoutes from './routes/users.js';
 import analyticsRoutes from './routes/analytics.js';
 import activityRoutes from './routes/activity.js';
+import searchRoutes from './routes/search.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -33,6 +34,7 @@ app.use('/api/comments', commentRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/activity', activityRoutes);
+app.use('/api/search', searchRoutes);
 
 const frontendDist = (() => {
   const containerPath = path.join(__dirname, 'frontend', 'dist');

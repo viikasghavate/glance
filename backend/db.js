@@ -36,6 +36,7 @@ db.exec(`
     owner_id INTEGER,
     priority TEXT DEFAULT 'medium',
     progress INTEGER DEFAULT 0,
+    tags TEXT DEFAULT '',
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
   );
@@ -95,6 +96,16 @@ db.exec(`
     FOREIGN KEY (depends_on_id) REFERENCES tasks(id) ON DELETE CASCADE,
     UNIQUE(task_id, depends_on_id)
   );
+
+  CREATE TABLE IF NOT EXISTS task_checklist (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL,
+    text TEXT NOT NULL,
+    completed INTEGER DEFAULT 0,
+    position INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+  );
 `);
 
 function migrate() {
@@ -119,6 +130,7 @@ function migrate() {
     { name: 'owner_id', def: 'INTEGER' },
     { name: 'priority', def: "TEXT DEFAULT 'medium'" },
     { name: 'progress', def: 'INTEGER DEFAULT 0' },
+    { name: 'tags', def: "TEXT DEFAULT ''" },
   ];
 
   const taskMigrations = [

@@ -55,7 +55,10 @@ function getTaskWithDeps(id) {
   `).get(id);
   if (!task) return null;
   const deps = getDependencies(id);
-  return { ...task, ...deps };
+  const checklist = db.prepare(
+    'SELECT COUNT(*) as total, COALESCE(SUM(completed), 0) as completed FROM task_checklist WHERE task_id = ?'
+  ).get(id);
+  return { ...task, ...deps, checklist_progress: { total: checklist.total, completed: checklist.completed || 0 } };
 }
 
 function addDays(dateStr, days) {
@@ -389,6 +392,93 @@ router.delete('/:id/dependencies', requireRole('admin', 'member'), (req, res) =>
   logActivity(req.user.id, 'task.dependencies_cleared', 'task', id, task.title);
 
   res.json(getTaskWithDeps(id));
+});
+
+router.get('/:id/checklist', (req, res) => {
+  const { id } = req.params;
+  const task = db.prepare('SELECT id FROM tasks WHERE id = ?').get(id);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  const items = db.prepare(
+    'SELECT * FROM task_checklist WHERE task_id = ? ORDER BY position ASC, id ASC'
+  ).all(id);
+  res.json(items);
+});
+
+router.post('/:id/checklist', requireRole('admin', 'member'), (req, res) => {
+  const { id } = req.params;
+  const { text } = req.body;
+  if (!text || !text.trim()) return res.status(400).json({ error: 'text is required' });
+
+  const task = db.prepare('SELECT id FROM tasks WHERE id = ?').get(id);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  const maxPos = db.prepare(
+    'SELECT COALESCE(MAX(position), -1) as maxPos FROM task_checklist WHERE task_id = ?'
+  ).get(id);
+
+  const result = db.prepare(
+    'INSERT INTO task_checklist (task_id, text, position) VALUES (?, ?, ?)'
+  ).run(id, text.trim(), maxPos.maxPos + 1);
+
+  const item = db.prepare('SELECT * FROM task_checklist WHERE id = ?').get(result.lastInsertRowid);
+  res.status(201).json(item);
+});
+
+router.patch('/checklist/:itemId', requireRole('admin', 'member'), (req, res) => {
+  const { itemId } = req.params;
+  const item = db.prepare('SELECT * FROM task_checklist WHERE id = ?').get(itemId);
+  if (!item) return res.status(404).json({ error: 'Checklist item not found' });
+
+  const updates = [];
+  const values = [];
+
+  if (req.body.text !== undefined) {
+    updates.push('text = ?');
+    values.push(req.body.text);
+  }
+  if (req.body.completed !== undefined) {
+    updates.push('completed = ?');
+    values.push(req.body.completed ? 1 : 0);
+  }
+
+  if (updates.length === 0) return res.json(item);
+
+  values.push(itemId);
+  db.prepare(`UPDATE task_checklist SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+
+  res.json(db.prepare('SELECT * FROM task_checklist WHERE id = ?').get(itemId));
+});
+
+router.delete('/checklist/:itemId', requireRole('admin', 'member'), (req, res) => {
+  const { itemId } = req.params;
+  const item = db.prepare('SELECT * FROM task_checklist WHERE id = ?').get(itemId);
+  if (!item) return res.status(404).json({ error: 'Checklist item not found' });
+
+  db.prepare('DELETE FROM task_checklist WHERE id = ?').run(itemId);
+  res.json({ success: true });
+});
+
+router.post('/:id/checklist/reorder', requireRole('admin', 'member'), (req, res) => {
+  const { id } = req.params;
+  const { orderedIds } = req.body;
+  if (!Array.isArray(orderedIds)) return res.status(400).json({ error: 'orderedIds is required' });
+
+  const task = db.prepare('SELECT id FROM tasks WHERE id = ?').get(id);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  const updatePos = db.prepare('UPDATE task_checklist SET position = ? WHERE id = ? AND task_id = ?');
+  const txn = db.transaction(() => {
+    orderedIds.forEach((itemId, index) => {
+      updatePos.run(index, itemId, id);
+    });
+  });
+  txn();
+
+  const items = db.prepare(
+    'SELECT * FROM task_checklist WHERE task_id = ? ORDER BY position ASC, id ASC'
+  ).all(id);
+  res.json(items);
 });
 
 export default router;

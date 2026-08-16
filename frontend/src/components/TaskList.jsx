@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react';
 import './TaskList.css';
 
-export default function TaskList({ tasks, users, onTaskClick, onStatusChange }) {
+export default function TaskList({ tasks, users, onTaskClick, onStatusChange, onReorder, readOnly }) {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterPriority, setFilterPriority] = useState('');
   const [filterAssignee, setFilterAssignee] = useState('');
   const [collapsed, setCollapsed] = useState({});
+  const [dragOverId, setDragOverId] = useState(null);
 
   const toggleCollapse = (id) => {
     setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
@@ -57,6 +58,33 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange }) 
     return map[s] || s;
   };
 
+  const handleDragStart = (e, task) => {
+    e.dataTransfer.setData('text/plain', JSON.stringify({ taskId: task.id, status: task.status }));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e, task) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverId(task.id);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverId(null);
+  };
+
+  const handleDrop = (e, targetTask) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverId(null);
+    const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+    if (data.taskId === targetTask.id) return;
+    if (onReorder) {
+      onReorder(data.taskId, targetTask.status, targetTask.position);
+    }
+  };
+
   return (
     <div>
       <div className="task-filters">
@@ -96,7 +124,16 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange }) 
               <div className="task-table-cell">Spent</div>
             </div>
             {filtered.map(task => (
-              <div key={task.id} onClick={() => onTaskClick(task)} className={`task-table-row task-row ${task.archived ? 'archived' : ''} ${task.depth > 0 ? 'subtask-row' : ''}`}>
+              <div
+                key={task.id}
+                onClick={() => onTaskClick(task)}
+                draggable={!readOnly}
+                onDragStart={!readOnly ? (e) => handleDragStart(e, task) : undefined}
+                onDragOver={!readOnly ? (e) => handleDragOver(e, task) : undefined}
+                onDragLeave={!readOnly ? handleDragLeave : undefined}
+                onDrop={!readOnly ? (e) => handleDrop(e, task) : undefined}
+                className={`task-table-row task-row ${task.archived ? 'archived' : ''} ${task.depth > 0 ? 'subtask-row' : ''} ${dragOverId === task.id ? 'drag-over' : ''}`}
+              >
                 <div className="task-table-cell task-title-cell" style={{ paddingLeft: `${0.75 + task.depth * 1.5}rem` }}>
                   {task.hasChildren ? (
                     <span className="subtask-toggle" onClick={e => { e.stopPropagation(); toggleCollapse(task.id); }}>

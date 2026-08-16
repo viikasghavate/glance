@@ -12,6 +12,7 @@ export default function ProjectModal({ project, users, onClose, onSave }) {
   const [ownerId, setOwnerId] = useState(project?.owner_id || '');
   const [priority, setPriority] = useState(project?.priority || 'medium');
   const [progress, setProgress] = useState(project?.progress ?? 0);
+  const [tags, setTags] = useState(project?.tags || '');
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -28,7 +29,8 @@ export default function ProjectModal({ project, users, onClose, onSave }) {
         due_date: dueDate || null,
         owner_id: ownerId ? Number(ownerId) : null,
         priority,
-        progress: Number(progress)
+        progress: Number(progress),
+        tags: tags.trim()
       });
     } catch (err) {
       console.error(err);
@@ -49,6 +51,10 @@ export default function ProjectModal({ project, users, onClose, onSave }) {
           <div className="form-group">
             <label htmlFor="pdesc">Description</label>
             <textarea id="pdesc" value={description} onChange={e => setDescription(e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label htmlFor="ptags">Tags</label>
+            <input id="ptags" type="text" value={tags} onChange={e => setTags(e.target.value)} placeholder="comma, separated, tags" />
           </div>
           <div className="form-group">
             <label>Color</label>

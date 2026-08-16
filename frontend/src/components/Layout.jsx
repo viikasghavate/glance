@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useUI } from '../context/UIContext';
@@ -107,6 +107,10 @@ export default function Layout() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [railCollapsed, setRailCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef(null);
+  const debounceRef = useRef(null);
 
   const isHome = location.pathname === '/';
   const isProjectPage = location.pathname.startsWith('/project/');
@@ -139,6 +143,54 @@ export default function Layout() {
   const filteredProjects = searchQuery
     ? projects.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
     : projects;
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setSearchResults(null);
+      setSearchOpen(false);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const data = await apiFetch(`/search?q=${encodeURIComponent(q)}`);
+        setSearchResults(data);
+        setSearchOpen(true);
+      } catch (err) {
+        console.error(err);
+        setSearchResults(null);
+      }
+    }, 300);
+    return () => clearTimeout(debounceRef.current);
+  }, [searchQuery, apiFetch]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchRef.current && !searchRef.current.contains(e.target)) {
+        setSearchOpen(false);
+      }
+    };
+    const handleKey = (e) => {
+      if (e.key === 'Escape') setSearchOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, []);
+
+  const handleSearchSelect = (path) => {
+    setSearchOpen(false);
+    setSearchQuery('');
+    setSearchResults(null);
+    navigate(path);
+  };
+
+  const hasSearchResults = searchResults &&
+    (searchResults.projects?.length || searchResults.tasks?.length || searchResults.comments?.length);
 
   return (
     <div className="app-shell">
@@ -248,18 +300,62 @@ export default function Layout() {
           </div>
 
           <div className="top-bar-center">
-            <div style={{ position: 'relative', width: '100%', maxWidth: 300 }}>
+            <div style={{ position: 'relative', width: '100%', maxWidth: 300 }} ref={searchRef}>
               <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', display: 'flex', color: 'var(--text-muted)', pointerEvents: 'none' }}>
                 <IconSearch />
               </span>
               <input
                 type="text"
                 className="search-input"
-                placeholder="Search projects..."
+                placeholder="Search projects, tasks, comments..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
+                onFocus={() => { if (hasSearchResults) setSearchOpen(true); }}
                 style={{ paddingLeft: '1.75rem' }}
               />
+              {searchOpen && (
+                <div className="search-dropdown">
+                  {!hasSearchResults ? (
+                    <div className="search-empty">No results</div>
+                  ) : (
+                    <>
+                      {searchResults.projects?.length > 0 && (
+                        <div className="search-group">
+                          <div className="search-group-label">Projects</div>
+                          {searchResults.projects.map(p => (
+                            <button key={p.id} className="search-item" onClick={() => handleSearchSelect(`/project/${p.id}`)}>
+                              <span className="search-dot" style={{ background: p.color }} />
+                              <span className="search-item-text">{p.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {searchResults.tasks?.length > 0 && (
+                        <div className="search-group">
+                          <div className="search-group-label">Tasks</div>
+                          {searchResults.tasks.map(t => (
+                            <button key={t.id} className="search-item" onClick={() => handleSearchSelect(`/project/${t.project_id}`)}>
+                              <span className="search-item-text">{t.title}</span>
+                              <span className="search-item-sub">{t.project_name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {searchResults.comments?.length > 0 && (
+                        <div className="search-group">
+                          <div className="search-group-label">Comments</div>
+                          {searchResults.comments.map(c => (
+                            <button key={c.id} className="search-item" onClick={() => handleSearchSelect(`/project/${c.project_id}`)}>
+                              <span className="search-item-text">{c.body}</span>
+                              <span className="search-item-sub">{c.task_title}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
             {isProjectPage && (
               <div className="view-toggle-top">

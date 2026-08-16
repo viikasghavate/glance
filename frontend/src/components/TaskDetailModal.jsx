@@ -8,6 +8,9 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
   const [submitting, setSubmitting] = useState(false);
   const [parentId, setParentId] = useState(task.parent_id || '');
   const [dependsOnId, setDependsOnId] = useState('');
+  const [checklist, setChecklist] = useState([]);
+  const [checklistText, setChecklistText] = useState('');
+  const [loadingChecklist, setLoadingChecklist] = useState(true);
 
   const parentTask = tasks?.find(t => t.id === task.parent_id) || null;
   const subtasks = tasks?.filter(t => t.parent_id === task.id) || [];
@@ -59,6 +62,76 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
   };
 
   useEffect(() => { fetchComments(); }, [task.id]);
+
+  const fetchChecklist = async () => {
+    try {
+      const data = await apiFetch(`/tasks/${task.id}/checklist`);
+      setChecklist(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingChecklist(false);
+    }
+  };
+
+  useEffect(() => { fetchChecklist(); }, [task.id]);
+
+  const handleAddChecklistItem = async (e) => {
+    e.preventDefault();
+    if (!checklistText.trim()) return;
+    try {
+      const item = await apiFetch(`/tasks/${task.id}/checklist`, {
+        method: 'POST',
+        body: JSON.stringify({ text: checklistText.trim() })
+      });
+      setChecklist(prev => [...prev, item]);
+      setChecklistText('');
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleToggleChecklistItem = async (item) => {
+    try {
+      const updated = await apiFetch(`/tasks/checklist/${item.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ completed: item.completed ? 0 : 1 })
+      });
+      setChecklist(prev => prev.map(i => i.id === updated.id ? updated : i));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteChecklistItem = async (itemId) => {
+    try {
+      await apiFetch(`/tasks/checklist/${itemId}`, { method: 'DELETE' });
+      setChecklist(prev => prev.filter(i => i.id !== itemId));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleMoveChecklistItem = async (index, direction) => {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= checklist.length) return;
+    const reordered = [...checklist];
+    const [moved] = reordered.splice(index, 1);
+    reordered.splice(newIndex, 0, moved);
+    setChecklist(reordered);
+    try {
+      const data = await apiFetch(`/tasks/${task.id}/checklist/reorder`, {
+        method: 'POST',
+        body: JSON.stringify({ orderedIds: reordered.map(i => i.id) })
+      });
+      setChecklist(data);
+    } catch (err) {
+      console.error(err);
+      fetchChecklist();
+    }
+  };
+
+  const checklistDone = checklist.filter(i => i.completed).length;
 
   const handleAddComment = async (e) => {
     e.preventDefault();
@@ -243,6 +316,47 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
             <button className="btn-danger btn-sm" onClick={onDelete}>Delete Task</button>
           </div>
         )}
+
+        <div className="checklist-section">
+          <h4>Checklist {checklist.length > 0 && <span className="checklist-progress">{checklistDone}/{checklist.length} done</span>}</h4>
+          {loadingChecklist ? (
+            <div className="loading"><div className="spinner" /></div>
+          ) : checklist.length === 0 ? (
+            <p className="empty">No checklist items.</p>
+          ) : (
+            <div className="checklist-list">
+              {checklist.map((item, idx) => (
+                <div key={item.id} className={`checklist-item ${item.completed ? 'completed' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={!!item.completed}
+                    onChange={() => handleToggleChecklistItem(item)}
+                    disabled={readOnly}
+                  />
+                  <span className="checklist-item-text">{item.text}</span>
+                  {!readOnly && (
+                    <div className="checklist-item-actions">
+                      <button className="btn-ghost btn-sm" onClick={() => handleMoveChecklistItem(idx, -1)} disabled={idx === 0} title="Move up">↑</button>
+                      <button className="btn-ghost btn-sm" onClick={() => handleMoveChecklistItem(idx, 1)} disabled={idx === checklist.length - 1} title="Move down">↓</button>
+                      <button className="btn-ghost btn-sm" onClick={() => handleDeleteChecklistItem(item.id)} title="Delete">&times;</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {!readOnly && (
+            <form onSubmit={handleAddChecklistItem} className="checklist-form">
+              <input
+                type="text"
+                value={checklistText}
+                onChange={e => setChecklistText(e.target.value)}
+                placeholder="Add checklist item..."
+              />
+              <button type="submit" className="btn-primary btn-sm" disabled={!checklistText.trim()}>Add</button>
+            </form>
+          )}
+        </div>
 
         <div className="comments-section">
           <h4>Comments</h4>

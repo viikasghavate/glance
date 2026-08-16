@@ -140,6 +140,8 @@ export default function ProjectDetailPage() {
           users={users}
           onTaskClick={setSelectedTask}
           onStatusChange={(taskId, status) => handleTaskUpdate(taskId, { status })}
+          onReorder={handleReorder}
+          readOnly={hasRole('viewer')}
         />
       )}
       {view === 'timeline' && (

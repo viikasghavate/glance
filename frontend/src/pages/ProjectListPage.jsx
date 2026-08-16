@@ -66,6 +66,13 @@ export default function ProjectListPage() {
                   <span className={`badge badge-${p.priority}`}>{p.priority}</span>
                   {p.owner_name && <span className="meta-owner">{p.owner_name}</span>}
                 </div>
+                {p.tags && (
+                  <div className="project-card-tags">
+                    {p.tags.split(',').map((t, i) => (
+                      <span key={i} className="label-badge">{t.trim()}</span>
+                    ))}
+                  </div>
+                )}
                 <div className="project-card-progress">
                   <div className="progress-bar">
                     <div className="progress-fill" style={{ width: `${p.progress || 0}%` }} />

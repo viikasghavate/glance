@@ -46,12 +46,12 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', requireRole('admin', 'member'), (req, res) => {
-  const { name, description, color, status, start_date, due_date, owner_id, priority, progress } = req.body;
+  const { name, description, color, status, start_date, due_date, owner_id, priority, progress, tags } = req.body;
   if (!name) return res.status(400).json({ error: 'name is required' });
 
   const result = db.prepare(
-    `INSERT INTO projects (name, description, color, status, start_date, due_date, owner_id, priority, progress)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO projects (name, description, color, status, start_date, due_date, owner_id, priority, progress, tags)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     name,
     description || '',
@@ -61,7 +61,8 @@ router.post('/', requireRole('admin', 'member'), (req, res) => {
     due_date || null,
     owner_id || null,
     priority || 'medium',
-    progress != null ? progress : 0
+    progress != null ? progress : 0,
+    tags || ''
   );
 
   const project = db.prepare(`
@@ -94,7 +95,7 @@ router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
   const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
-  const fields = ['name', 'description', 'color', 'archived', 'status', 'start_date', 'due_date', 'owner_id', 'priority', 'progress'];
+  const fields = ['name', 'description', 'color', 'archived', 'status', 'start_date', 'due_date', 'owner_id', 'priority', 'progress', 'tags'];
   const updates = [];
   const values = [];
 

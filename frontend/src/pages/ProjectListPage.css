@@ -104,6 +104,13 @@
   color: var(--text-muted);
 }
 
+.project-card-tags {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
 .project-card-progress {
   display: flex;
   align-items: center;
