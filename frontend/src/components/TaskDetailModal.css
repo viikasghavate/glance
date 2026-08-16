@@ -164,3 +164,14 @@
 .subtask-item-title {
   color: var(--text-muted);
 }
+
+.dependency-add {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.dependency-add select {
+  flex: 1;
+  font-size: 0.8125rem;
+}

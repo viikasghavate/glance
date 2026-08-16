@@ -163,15 +163,64 @@ function WorkloadBars({ data }) {
   );
 }
 
+function relativeTime(dateStr) {
+  if (!dateStr) return '';
+  const then = new Date(dateStr + (dateStr.includes('T') ? '' : 'T00:00:00'));
+  const now = new Date();
+  const diff = Math.floor((now - then) / 1000);
+  if (diff < 60) return 'just now';
+  const mins = Math.floor(diff / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(months / 12)}y ago`;
+}
+
+const ACTION_LABELS = {
+  'task.created': 'created task',
+  'task.status_changed': 'moved task',
+  'task.assigned': 'assigned task',
+  'task.updated': 'updated task',
+  'task.deleted': 'deleted task',
+  'task.dependency_added': 'added a dependency to',
+  'task.dependency_removed': 'removed a dependency from',
+  'task.dependencies_cleared': 'cleared dependencies on',
+  'comment.added': 'commented on',
+  'project.created': 'created project',
+  'project.updated': 'updated project',
+  'project.deleted': 'deleted project',
+  'user.created': 'created user',
+  'user.role_changed': 'changed role of',
+  'user.deleted': 'deleted user'
+};
+
+function formatActivity(a) {
+  const verb = ACTION_LABELS[a.action] || a.action;
+  const name = a.entity_name ? `'${a.entity_name}'` : '';
+  const user = a.user_name || 'Someone';
+  return `${user} ${verb} ${name}`.trim();
+}
+
 export default function DashboardPage() {
   const { apiFetch } = useAuth();
   const [data, setData] = useState(null);
+  const [activity, setActivity] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    apiFetch('/analytics')
-      .then(setData)
+    Promise.all([
+      apiFetch('/analytics'),
+      apiFetch('/activity?limit=10').catch(() => [])
+    ])
+      .then(([analyticsData, activityData]) => {
+        setData(analyticsData);
+        setActivity(activityData);
+      })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false));
   }, [apiFetch]);
@@ -261,18 +310,17 @@ export default function DashboardPage() {
         <div className="panel">
           <h2 className="panel-title">Recent Activity</h2>
           <div className="task-list">
-            {data.recentActivity.length === 0 ? (
+            {activity.length === 0 ? (
               <div className="empty">No recent activity</div>
             ) : (
-              data.recentActivity.map(t => (
-                <Link key={t.id} to={`/project/${t.project_id}`} className="task-row">
-                  <div className="task-row-title">{t.title}</div>
+              activity.map(a => (
+                <div key={a.id} className="task-row activity-row">
+                  <div className="task-row-title">{formatActivity(a)}</div>
                   <div className="task-row-meta">
-                    <span className="task-row-project">{t.project_name}</span>
-                    <span className={`badge badge-${t.status}`}>{statusMeta[t.status]?.label || t.status}</span>
-                    <span className="task-row-due">{t.updated_at}</span>
+                    <span className="task-row-project">{a.entity_type}</span>
+                    <span className="task-row-due">{relativeTime(a.created_at)}</span>
                   </div>
-                </Link>
+                </div>
               ))
             )}
           </div>

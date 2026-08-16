@@ -7,9 +7,31 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
   const [loadingComments, setLoadingComments] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [parentId, setParentId] = useState(task.parent_id || '');
+  const [dependsOnId, setDependsOnId] = useState('');
 
   const parentTask = tasks?.find(t => t.id === task.parent_id) || null;
   const subtasks = tasks?.filter(t => t.parent_id === task.id) || [];
+
+  const blockedBy = task.blockedBy || [];
+  const blocks = task.blocks || [];
+
+  const eligibleDependencies = (tasks || []).filter(t => {
+    if (t.id === task.id) return false;
+    if (blockedBy.some(d => d.id === t.id)) return false;
+    const visited = new Set();
+    const queue = [t.id];
+    while (queue.length > 0) {
+      const cur = queue.shift();
+      if (cur === task.id) return false;
+      if (visited.has(cur)) continue;
+      visited.add(cur);
+      const t2 = tasks.find(x => x.id === cur);
+      if (t2 && t2.blockedBy) {
+        t2.blockedBy.forEach(d => queue.push(d.id));
+      }
+    }
+    return true;
+  });
 
   const eligibleParents = (tasks || []).filter(t => {
     if (t.id === task.id) return false;
@@ -62,6 +84,29 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
     onUpdate({ parent_id: val ? Number(val) : null });
   };
 
+  const handleAddDependency = async () => {
+    if (!dependsOnId) return;
+    try {
+      const updated = await apiFetch(`/tasks/${task.id}/dependencies`, {
+        method: 'POST',
+        body: JSON.stringify({ depends_on_id: Number(dependsOnId) })
+      });
+      onUpdate(updated);
+      setDependsOnId('');
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleRemoveDependency = async (depId) => {
+    try {
+      const updated = await apiFetch(`/tasks/${task.id}/dependencies/${depId}`, { method: 'DELETE' });
+      onUpdate(updated);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const statusLabel = (s) => {
     const map = { todo: 'To Do', in_progress: 'In Progress', done: 'Done' };
     return map[s] || s;
@@ -79,6 +124,9 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
           <span className={`badge badge-${task.status}`}>{statusLabel(task.status)}</span>
           <span className={`badge badge-${task.priority}`}>{task.priority}</span>
           {task.archived && <span className="badge badge-low">Archived</span>}
+          {task.recurrence && task.recurrence !== 'none' && (
+            <span className="badge badge-medium">↻ {task.recurrence}</span>
+          )}
           {task.assignee_name && <span className="meta-item">Assigned to: {task.assignee_name}</span>}
           {task.reporter_name && <span className="meta-item">Reporter: {task.reporter_name}</span>}
           {task.due_date && <span className="meta-item">Due: {task.due_date}</span>}
@@ -123,6 +171,50 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
                   <div key={st.id} className="subtask-item">
                     <span className={`badge badge-${st.status}`}>{statusLabel(st.status)}</span>
                     <span className="subtask-item-title">{st.title}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="relation-section">
+            <h4>Blocked by ({blockedBy.length})</h4>
+            {blockedBy.length === 0 ? (
+              <span className="empty">No dependencies</span>
+            ) : (
+              <div className="subtask-list">
+                {blockedBy.map(d => (
+                  <div key={d.id} className="subtask-item">
+                    <span className={`badge badge-${d.status}`}>{statusLabel(d.status)}</span>
+                    <span className="subtask-item-title">{d.title}</span>
+                    {!readOnly && (
+                      <button className="btn-ghost btn-sm" onClick={() => handleRemoveDependency(d.id)}>&times;</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {!readOnly && (
+              <div className="dependency-add">
+                <select value={dependsOnId} onChange={e => setDependsOnId(e.target.value)}>
+                  <option value="">Add dependency...</option>
+                  {eligibleDependencies.map(t => (
+                    <option key={t.id} value={t.id}>{t.title}</option>
+                  ))}
+                </select>
+                <button className="btn-primary btn-sm" onClick={handleAddDependency} disabled={!dependsOnId}>Add</button>
+              </div>
+            )}
+          </div>
+          <div className="relation-section">
+            <h4>Blocks ({blocks.length})</h4>
+            {blocks.length === 0 ? (
+              <span className="empty">Nothing blocked</span>
+            ) : (
+              <div className="subtask-list">
+                {blocks.map(d => (
+                  <div key={d.id} className="subtask-item">
+                    <span className={`badge badge-${d.status}`}>{statusLabel(d.status)}</span>
+                    <span className="subtask-item-title">{d.title}</span>
                   </div>
                 ))}
               </div>

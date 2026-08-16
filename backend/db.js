@@ -73,6 +73,28 @@ db.exec(`
     FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS activity_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    action TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id INTEGER,
+    entity_name TEXT,
+    details TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS task_dependencies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL,
+    depends_on_id INTEGER NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    FOREIGN KEY (depends_on_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    UNIQUE(task_id, depends_on_id)
+  );
 `);
 
 function migrate() {
@@ -107,6 +129,8 @@ function migrate() {
     { name: 'reporter_id', def: 'INTEGER' },
     { name: 'archived', def: 'INTEGER DEFAULT 0' },
     { name: 'parent_id', def: 'INTEGER REFERENCES tasks(id) ON DELETE SET NULL' },
+    { name: 'recurrence', def: "TEXT NOT NULL DEFAULT 'none'" },
+    { name: 'recurrence_end', def: 'TEXT' },
   ];
 
   for (const col of projectMigrations) {

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { logActivity } from '../services/activity.js';
 
 const router = Router();
 
@@ -71,6 +72,7 @@ router.post('/', requireRole('admin', 'member'), (req, res) => {
   `).get(result.lastInsertRowid);
   project.archived = !!project.archived;
   project.taskCounts = { todo: 0, in_progress: 0, done: 0 };
+  logActivity(req.user.id, 'project.created', 'project', project.id, project.name);
   res.status(201).json(project);
 });
 
@@ -116,6 +118,7 @@ router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
     WHERE p.id = ?
   `).get(id);
   updated.archived = !!updated.archived;
+  logActivity(req.user.id, 'project.updated', 'project', updated.id, updated.name);
   res.json(updated);
 });
 
@@ -125,6 +128,7 @@ router.delete('/:id', requireRole('admin', 'member'), (req, res) => {
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
   db.prepare('DELETE FROM projects WHERE id = ?').run(id);
+  logActivity(req.user.id, 'project.deleted', 'project', id, project.name);
   res.json({ success: true });
 });
 

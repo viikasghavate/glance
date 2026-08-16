@@ -115,3 +115,19 @@
   margin-left: 0.5rem;
   vertical-align: middle;
 }
+
+.recurrence-badge {
+  display: inline-block;
+  font-size: 0.6875rem;
+  color: var(--violet);
+  margin-left: 0.375rem;
+  vertical-align: middle;
+}
+
+.blocked-badge {
+  display: inline-block;
+  font-size: 0.6875rem;
+  color: var(--danger);
+  margin-left: 0.375rem;
+  vertical-align: middle;
+}

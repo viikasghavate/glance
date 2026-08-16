@@ -2,6 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import db from '../db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { logActivity } from '../services/activity.js';
 
 const router = Router();
 
@@ -63,6 +64,7 @@ router.post('/', requireRole('admin'), (req, res) => {
   const hash = bcrypt.hashSync(password, 10);
   const result = db.prepare('INSERT INTO users (email, password_hash, name, role) VALUES (?, ?, ?, ?)').run(email, hash, name, role);
   const user = db.prepare('SELECT id, email, name, role, created_at, last_login_at FROM users WHERE id = ?').get(result.lastInsertRowid);
+  logActivity(req.user.id, 'user.created', 'user', user.id, user.name, { role });
   res.status(201).json(user);
 });
 
@@ -111,6 +113,7 @@ router.patch('/:id/role', requireRole('admin'), (req, res) => {
 
   db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, id);
   const updated = db.prepare('SELECT id, email, name, role, created_at, last_login_at FROM users WHERE id = ?').get(id);
+  logActivity(req.user.id, 'user.role_changed', 'user', updated.id, updated.name, { from: user.role, to: role });
   res.json(updated);
 });
 
@@ -138,6 +141,7 @@ router.delete('/:id', requireRole('admin'), (req, res) => {
   });
 
   cleanup();
+  logActivity(req.user.id, 'user.deleted', 'user', id, user.name);
   res.json({ success: true });
 });
 

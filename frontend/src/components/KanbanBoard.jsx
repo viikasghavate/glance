@@ -125,6 +125,12 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
                     {task.subtask_count > 0 && (
                       <span className="subtask-count">{task.subtask_count}</span>
                     )}
+                    {task.recurrence && task.recurrence !== 'none' && (
+                      <span className="recurrence-badge" title={`Recurring: ${task.recurrence}`}>↻</span>
+                    )}
+                    {task.blockedBy && task.blockedBy.some(d => d.status !== 'done') && (
+                      <span className="blocked-badge" title="Blocked by incomplete dependencies">⛔</span>
+                    )}
                   </div>
                   {task.labels && (
                     <div className="kanban-card-labels">

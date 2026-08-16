@@ -30,6 +30,8 @@ export default function TaskModal({ task, users, projectId, tasks, onClose, onSa
   const [reporterId, setReporterId] = useState(task?.reporter_id || '');
   const [archived, setArchived] = useState(!!task?.archived);
   const [parentId, setParentId] = useState(task?.parent_id || '');
+  const [recurrence, setRecurrence] = useState(task?.recurrence || 'none');
+  const [recurrenceEnd, setRecurrenceEnd] = useState(task?.recurrence_end || '');
   const [submitting, setSubmitting] = useState(false);
 
   const eligibleParents = useMemo(() => {
@@ -61,7 +63,9 @@ export default function TaskModal({ task, users, projectId, tasks, onClose, onSa
         time_spent: Number(timeSpent),
         reporter_id: reporterId ? Number(reporterId) : null,
         archived: archived ? 1 : 0,
-        parent_id: parentId ? Number(parentId) : null
+        parent_id: parentId ? Number(parentId) : null,
+        recurrence,
+        recurrence_end: recurrenceEnd || null
       });
     } catch (err) {
       console.error(err);
@@ -159,6 +163,22 @@ export default function TaskModal({ task, users, projectId, tasks, onClose, onSa
               <input type="checkbox" checked={archived} onChange={e => setArchived(e.target.checked)} />
               Archived
             </label>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <div className="form-group">
+              <label htmlFor="trecurrence">Recurrence</label>
+              <select id="trecurrence" value={recurrence} onChange={e => setRecurrence(e.target.value)}>
+                <option value="none">None</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label htmlFor="trecurrenceend">Recurrence End</label>
+              <input id="trecurrenceend" type="date" value={recurrenceEnd} onChange={e => setRecurrenceEnd(e.target.value)} />
+            </div>
           </div>
           <div className="modal-actions">
             <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>

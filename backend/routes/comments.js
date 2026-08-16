@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { logActivity } from '../services/activity.js';
 
 const router = Router();
 
@@ -23,7 +24,7 @@ router.post('/task/:taskId', requireRole('admin', 'member'), (req, res) => {
   const { body } = req.body;
   if (!body) return res.status(400).json({ error: 'body is required' });
 
-  const task = db.prepare('SELECT id FROM tasks WHERE id = ?').get(taskId);
+  const task = db.prepare('SELECT id, title FROM tasks WHERE id = ?').get(taskId);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
   const result = db.prepare(
@@ -36,6 +37,8 @@ router.post('/task/:taskId', requireRole('admin', 'member'), (req, res) => {
     JOIN users u ON c.user_id = u.id
     WHERE c.id = ?
   `).get(result.lastInsertRowid);
+
+  logActivity(req.user.id, 'comment.added', 'comment', comment.id, task ? task.title : null, { task_id: taskId });
 
   res.status(201).json(comment);
 });
