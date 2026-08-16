@@ -1,0 +1,31 @@
+.members-table-wrap {
+  overflow-x: auto;
+}
+
+.members-table {
+  display: table;
+  width: 100%;
+  min-width: 1000px;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.members-table th,
+.members-table td {
+  padding: 0.625rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.members-table th {
+  font-family: 'Orbitron', 'Space Grotesk', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+
+.members-table tbody tr:hover {
+  background: var(--bg-hover);
+}

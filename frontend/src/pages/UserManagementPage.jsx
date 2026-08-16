@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import MemberModal from '../components/MemberModal';
+import './UserManagementPage.css';
 
 function timeAgo(dateStr) {
   if (!dateStr) return 'Never';
@@ -139,8 +140,8 @@ export default function UserManagementPage() {
       {filteredUsers.length === 0 ? (
         <div className="empty">{search || roleFilter !== 'all' ? 'No members match your filters.' : 'No users found.'}</div>
       ) : (
-        <div className="task-table-wrap">
-          <table className="task-table">
+        <div className="members-table-wrap">
+          <table className="members-table">
             <thead>
               <tr>
                 <th>Name</th>
