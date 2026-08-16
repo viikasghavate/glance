@@ -76,7 +76,7 @@ export default function TaskModal({ task, users, projectId, tasks, onClose, onSa
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
+      <div className="modal task-form-modal" onClick={e => e.stopPropagation()}>
         <h2>{task ? 'Edit Task' : 'New Task'}</h2>
         <form onSubmit={handleSubmit}>
           <div className="form-group">

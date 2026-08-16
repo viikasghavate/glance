@@ -175,6 +175,10 @@ textarea { resize: vertical; min-height: 80px; }
   box-shadow: var(--shadow), var(--glow-cyan);
 }
 
+.task-form-modal {
+  max-width: 760px;
+}
+
 .modal h2 {
   font-size: 1.125rem;
   margin-bottom: 1rem;
