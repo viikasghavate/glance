@@ -175,7 +175,7 @@ textarea { resize: vertical; min-height: 80px; }
   box-shadow: var(--shadow), var(--glow-cyan);
 }
 
-.task-form-modal {
+.modal.task-form-modal {
   max-width: 760px;
 }
 
