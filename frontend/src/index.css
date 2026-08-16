@@ -167,7 +167,7 @@ textarea { resize: vertical; min-height: 80px; }
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 1.5rem;
+  padding: 1.75rem;
   width: 100%;
   max-width: 520px;
   max-height: 90vh;
