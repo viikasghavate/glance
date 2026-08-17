@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { logActivity } from '../services/activity.js';
+import { syncProjectTags, getProjectTags } from '../services/tagging.js';
 
 const router = Router();
 
@@ -9,6 +10,7 @@ router.use(requireAuth);
 
 router.get('/', (req, res) => {
   const includeArchived = req.query.includeArchived === 'true';
+  const tagFilter = req.query.tag;
   const projects = db.prepare(
     includeArchived
       ? `SELECT p.*, u.name as owner_name, u.email as owner_email
@@ -22,13 +24,25 @@ router.get('/', (req, res) => {
          ORDER BY p.created_at DESC`
   ).all();
 
+  let filtered = projects;
+  if (tagFilter) {
+    const matchingIds = db.prepare(`
+      SELECT DISTINCT pt.project_id
+      FROM project_tags pt
+      JOIN tags t ON t.id = pt.tag_id
+      WHERE t.name = ?
+    `).all(tagFilter).map(r => r.project_id);
+    const idSet = new Set(matchingIds);
+    filtered = projects.filter(p => idSet.has(p.id));
+  }
+
   const stmt = db.prepare(`
     SELECT project_id, status, COUNT(*) as count
     FROM tasks
-    WHERE project_id IN (${projects.map(() => '?').join(',') || '0'})
+    WHERE project_id IN (${filtered.map(() => '?').join(',') || '0'})
     GROUP BY project_id, status
   `);
-  const counts = stmt.all(...projects.map(p => p.id));
+  const counts = stmt.all(...filtered.map(p => p.id));
 
   const countMap = {};
   for (const c of counts) {
@@ -36,9 +50,10 @@ router.get('/', (req, res) => {
     countMap[c.project_id][c.status] = c.count;
   }
 
-  const result = projects.map(p => ({
+  const result = filtered.map(p => ({
     ...p,
     archived: !!p.archived,
+    tagList: getProjectTags(p.id),
     taskCounts: countMap[p.id] || { todo: 0, in_progress: 0, done: 0 }
   }));
 
@@ -73,6 +88,8 @@ router.post('/', requireRole('admin', 'member'), (req, res) => {
   `).get(result.lastInsertRowid);
   project.archived = !!project.archived;
   project.taskCounts = { todo: 0, in_progress: 0, done: 0 };
+  syncProjectTags(project.id, tags || '');
+  project.tagList = getProjectTags(project.id);
   logActivity(req.user.id, 'project.created', 'project', project.id, project.name);
   res.status(201).json(project);
 });
@@ -87,6 +104,7 @@ router.get('/:id', (req, res) => {
   `).get(id);
   if (!project) return res.status(404).json({ error: 'Project not found' });
   project.archived = !!project.archived;
+  project.tagList = getProjectTags(project.id);
   res.json(project);
 });
 
@@ -112,6 +130,9 @@ router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
   values.push(id);
 
   db.prepare(`UPDATE projects SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+  if (req.body.tags !== undefined) {
+    syncProjectTags(id, req.body.tags);
+  }
   const updated = db.prepare(`
     SELECT p.*, u.name as owner_name, u.email as owner_email
     FROM projects p
@@ -119,6 +140,7 @@ router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
     WHERE p.id = ?
   `).get(id);
   updated.archived = !!updated.archived;
+  updated.tagList = getProjectTags(id);
   logActivity(req.user.id, 'project.updated', 'project', updated.id, updated.name);
   res.json(updated);
 });

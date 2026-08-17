@@ -70,6 +70,14 @@ router.get('/', (req, res) => {
     LIMIT 8
   `).all();
 
+  const statusTrend = db.prepare(`
+    SELECT date(changed_at) as day, status, COUNT(*) as count
+    FROM task_status_history
+    WHERE changed_at >= date('now', '-30 days')
+    GROUP BY date(changed_at), status
+    ORDER BY day ASC
+  `).all();
+
   res.json({
     summary: {
       projects,
@@ -85,7 +93,8 @@ router.get('/', (req, res) => {
     workloadByMember,
     projectProgress,
     overdueTasks: overdueList,
-    recentActivity
+    recentActivity,
+    statusTrend
   });
 });
 

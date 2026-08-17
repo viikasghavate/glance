@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { logActivity } from '../services/activity.js';
+import { syncTaskLabels, getTaskLabels } from '../services/tagging.js';
 
 const router = Router();
 
@@ -58,7 +59,7 @@ function getTaskWithDeps(id) {
   const checklist = db.prepare(
     'SELECT COUNT(*) as total, COALESCE(SUM(completed), 0) as completed FROM task_checklist WHERE task_id = ?'
   ).get(id);
-  return { ...task, ...deps, checklist_progress: { total: checklist.total, completed: checklist.completed || 0 } };
+  return { ...task, ...deps, labelList: getTaskLabels(id), checklist_progress: { total: checklist.total, completed: checklist.completed || 0 } };
 }
 
 function addDays(dateStr, days) {
@@ -143,7 +144,9 @@ router.get('/project/:projectId', (req, res) => {
   const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
-  const tasks = db.prepare(`
+  const labelFilter = req.query.label;
+
+  let tasks = db.prepare(`
     SELECT t.*, u.name as assignee_name, u.email as assignee_email,
            r.name as reporter_name, r.email as reporter_email,
            (SELECT COUNT(*) FROM tasks WHERE parent_id = t.id) as subtask_count
@@ -154,7 +157,18 @@ router.get('/project/:projectId', (req, res) => {
     ORDER BY t.position ASC, t.created_at DESC
   `).all(projectId);
 
-  const result = tasks.map(t => ({ ...t, ...getDependencies(t.id) }));
+  if (labelFilter) {
+    const matchingIds = db.prepare(`
+      SELECT DISTINCT tl.task_id
+      FROM task_labels tl
+      JOIN labels l ON l.id = tl.label_id
+      WHERE l.name = ?
+    `).all(labelFilter).map(r => r.task_id);
+    const idSet = new Set(matchingIds);
+    tasks = tasks.filter(t => idSet.has(t.id));
+  }
+
+  const result = tasks.map(t => ({ ...t, ...getDependencies(t.id), labelList: getTaskLabels(t.id) }));
 
   res.json(result);
 });
@@ -202,9 +216,13 @@ router.post('/project/:projectId', requireRole('admin', 'member'), (req, res) =>
 
   const task = getTaskWithDeps(result.lastInsertRowid);
 
-  logActivity(req.user.id, 'task.created', 'task', task.id, task.title);
+  syncTaskLabels(task.id, labels || '');
 
-  res.status(201).json(task);
+  const taskWithLabels = getTaskWithDeps(result.lastInsertRowid);
+
+  logActivity(req.user.id, 'task.created', 'task', taskWithLabels.id, taskWithLabels.title);
+
+  res.status(201).json(taskWithLabels);
 });
 
 router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
@@ -246,9 +264,15 @@ router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
 
   db.prepare(`UPDATE tasks SET ${updates.join(', ')} WHERE id = ?`).run(...values);
 
+  if (req.body.labels !== undefined) {
+    syncTaskLabels(id, req.body.labels);
+  }
+
   const updated = getTaskWithDeps(id);
 
   if (req.body.status !== undefined && req.body.status !== task.status) {
+    db.prepare('INSERT INTO task_status_history (task_id, status, user_id) VALUES (?, ?, ?)')
+      .run(id, updated.status, req.user.id || null);
     logActivity(req.user.id, 'task.status_changed', 'task', updated.id, updated.title, { from: task.status, to: updated.status });
   }
   if (req.body.assignee_id !== undefined && Number(req.body.assignee_id || 0) !== Number(task.assignee_id || 0)) {
@@ -319,6 +343,8 @@ router.post('/:id/reorder', requireRole('admin', 'member'), (req, res) => {
   const updated = getTaskWithDeps(id);
 
   if (status !== undefined && status !== oldStatus) {
+    db.prepare('INSERT INTO task_status_history (task_id, status, user_id) VALUES (?, ?, ?)')
+      .run(id, status, req.user.id || null);
     logActivity(req.user.id, 'task.status_changed', 'task', updated.id, updated.title, { from: oldStatus, to: status });
     if (status === 'done' && oldStatus !== 'done') {
       createNextOccurrence(updated);
@@ -392,6 +418,21 @@ router.delete('/:id/dependencies', requireRole('admin', 'member'), (req, res) =>
   logActivity(req.user.id, 'task.dependencies_cleared', 'task', id, task.title);
 
   res.json(getTaskWithDeps(id));
+});
+
+router.get('/:id/status-history', (req, res) => {
+  const { id } = req.params;
+  const task = db.prepare('SELECT id FROM tasks WHERE id = ?').get(id);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  const history = db.prepare(`
+    SELECT h.id, h.status, h.user_id, h.changed_at, u.name as user_name
+    FROM task_status_history h
+    LEFT JOIN users u ON u.id = h.user_id
+    WHERE h.task_id = ?
+    ORDER BY h.changed_at ASC, h.id ASC
+  `).all(id);
+  res.json(history);
 });
 
 router.get('/:id/checklist', (req, res) => {
