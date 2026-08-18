@@ -7,22 +7,22 @@ const router = Router();
 router.use(requireAuth);
 
 router.get('/', (req, res) => {
-  const projects = db.prepare('SELECT COUNT(*) as count FROM projects WHERE archived = 0').get().count;
-  const tasks = db.prepare('SELECT COUNT(*) as count FROM tasks WHERE archived = 0').get().count;
-  const tasksDone = db.prepare("SELECT COUNT(*) as count FROM tasks WHERE archived = 0 AND status = 'done'").get().count;
-  const tasksInProgress = db.prepare("SELECT COUNT(*) as count FROM tasks WHERE archived = 0 AND status = 'in_progress'").get().count;
-  const tasksTodo = db.prepare("SELECT COUNT(*) as count FROM tasks WHERE archived = 0 AND status = 'todo'").get().count;
+  const projects = db.prepare('SELECT COUNT(*) as count FROM projects WHERE archived = 0 AND deleted_at IS NULL').get().count;
+  const tasks = db.prepare('SELECT COUNT(*) as count FROM tasks WHERE archived = 0 AND deleted_at IS NULL').get().count;
+  const tasksDone = db.prepare("SELECT COUNT(*) as count FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status = 'done'").get().count;
+  const tasksInProgress = db.prepare("SELECT COUNT(*) as count FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status = 'in_progress'").get().count;
+  const tasksTodo = db.prepare("SELECT COUNT(*) as count FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status = 'todo'").get().count;
   const overdueTasks = db.prepare(
-    "SELECT COUNT(*) as count FROM tasks WHERE archived = 0 AND status != 'done' AND due_date IS NOT NULL AND due_date < date('now')"
+    "SELECT COUNT(*) as count FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status != 'done' AND due_date IS NOT NULL AND due_date < date('now')"
   ).get().count;
   const members = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
 
   const tasksByStatus = db.prepare(
-    "SELECT status, COUNT(*) as count FROM tasks WHERE archived = 0 GROUP BY status ORDER BY count DESC"
+    "SELECT status, COUNT(*) as count FROM tasks WHERE archived = 0 AND deleted_at IS NULL GROUP BY status ORDER BY count DESC"
   ).all();
 
   const tasksByPriority = db.prepare(
-    "SELECT priority, COUNT(*) as count FROM tasks WHERE archived = 0 GROUP BY priority ORDER BY count DESC"
+    "SELECT priority, COUNT(*) as count FROM tasks WHERE archived = 0 AND deleted_at IS NULL GROUP BY priority ORDER BY count DESC"
   ).all();
 
   const workloadByMember = db.prepare(`
@@ -30,7 +30,7 @@ router.get('/', (req, res) => {
            COUNT(t.id) as tasksAssigned,
            SUM(CASE WHEN t.status = 'done' THEN 1 ELSE 0 END) as tasksDone
     FROM users u
-    LEFT JOIN tasks t ON t.assignee_id = u.id AND t.archived = 0
+    LEFT JOIN tasks t ON t.assignee_id = u.id AND t.archived = 0 AND t.deleted_at IS NULL
     GROUP BY u.id
     ORDER BY tasksAssigned DESC
   `).all();
@@ -40,8 +40,8 @@ router.get('/', (req, res) => {
            COUNT(t.id) as tasks,
            SUM(CASE WHEN t.status = 'done' THEN 1 ELSE 0 END) as done
     FROM projects p
-    LEFT JOIN tasks t ON t.project_id = p.id AND t.archived = 0
-    WHERE p.archived = 0
+    LEFT JOIN tasks t ON t.project_id = p.id AND t.archived = 0 AND t.deleted_at IS NULL
+    WHERE p.archived = 0 AND p.deleted_at IS NULL
     GROUP BY p.id
     ORDER BY p.created_at DESC
   `).all().map(p => ({
@@ -57,7 +57,7 @@ router.get('/', (req, res) => {
     FROM tasks t
     LEFT JOIN projects p ON t.project_id = p.id
     LEFT JOIN users u ON t.assignee_id = u.id
-    WHERE t.archived = 0 AND t.status != 'done' AND t.due_date IS NOT NULL AND t.due_date < date('now')
+    WHERE t.archived = 0 AND t.deleted_at IS NULL AND t.status != 'done' AND t.due_date IS NOT NULL AND t.due_date < date('now')
     ORDER BY t.due_date ASC
   `).all();
 
@@ -65,7 +65,7 @@ router.get('/', (req, res) => {
     SELECT t.id, t.title, p.name as project_name, t.status, t.updated_at
     FROM tasks t
     LEFT JOIN projects p ON t.project_id = p.id
-    WHERE t.archived = 0
+    WHERE t.archived = 0 AND t.deleted_at IS NULL
     ORDER BY t.updated_at DESC
     LIMIT 8
   `).all();

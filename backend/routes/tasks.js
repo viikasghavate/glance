@@ -3,17 +3,37 @@ import db from '../db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { logActivity } from '../services/activity.js';
 import { syncTaskLabels, getTaskLabels } from '../services/tagging.js';
+import { notifyTaskAssigned, notifyCommentAdded, notifyDependencyDone } from '../services/notifications.js';
+import { recomputeTimeSpent } from './time_entries.js';
 
 const router = Router();
 
 router.use(requireAuth);
+
+const VALID_STATUS = ['todo', 'in_progress', 'done'];
+const VALID_PRIORITY = ['low', 'medium', 'high'];
+
+function isValidDate(value) {
+  if (value == null || value === '') return true;
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value));
+}
+
+function getWatchers(taskId) {
+  return db.prepare(`
+    SELECT u.id, u.name, u.email
+    FROM task_watchers w
+    JOIN users u ON u.id = w.user_id
+    WHERE w.task_id = ?
+    ORDER BY u.name ASC
+  `).all(taskId);
+}
 
 function getDescendantIds(taskId) {
   const ids = new Set();
   const queue = [taskId];
   while (queue.length > 0) {
     const current = queue.shift();
-    const children = db.prepare('SELECT id FROM tasks WHERE parent_id = ?').all(current);
+    const children = db.prepare('SELECT id FROM tasks WHERE parent_id = ? AND deleted_at IS NULL').all(current);
     for (const child of children) {
       if (!ids.has(child.id)) {
         ids.add(child.id);
@@ -29,7 +49,7 @@ function getDependencies(taskId) {
     SELECT t.id, t.title, t.status
     FROM task_dependencies d
     JOIN tasks t ON t.id = d.depends_on_id
-    WHERE d.task_id = ?
+    WHERE d.task_id = ? AND t.deleted_at IS NULL
     ORDER BY t.id ASC
   `).all(taskId);
 
@@ -37,7 +57,7 @@ function getDependencies(taskId) {
     SELECT t.id, t.title, t.status
     FROM task_dependencies d
     JOIN tasks t ON t.id = d.task_id
-    WHERE d.depends_on_id = ?
+    WHERE d.depends_on_id = ? AND t.deleted_at IS NULL
     ORDER BY t.id ASC
   `).all(taskId);
 
@@ -48,18 +68,18 @@ function getTaskWithDeps(id) {
   const task = db.prepare(`
     SELECT t.*, u.name as assignee_name, u.email as assignee_email,
            r.name as reporter_name, r.email as reporter_email,
-           (SELECT COUNT(*) FROM tasks WHERE parent_id = t.id) as subtask_count
+           (SELECT COUNT(*) FROM tasks WHERE parent_id = t.id AND deleted_at IS NULL) as subtask_count
     FROM tasks t
     LEFT JOIN users u ON t.assignee_id = u.id
     LEFT JOIN users r ON t.reporter_id = r.id
-    WHERE t.id = ?
+    WHERE t.id = ? AND t.deleted_at IS NULL
   `).get(id);
   if (!task) return null;
   const deps = getDependencies(id);
   const checklist = db.prepare(
     'SELECT COUNT(*) as total, COALESCE(SUM(completed), 0) as completed FROM task_checklist WHERE task_id = ?'
   ).get(id);
-  return { ...task, ...deps, labelList: getTaskLabels(id), checklist_progress: { total: checklist.total, completed: checklist.completed || 0 } };
+  return { ...task, ...deps, labelList: getTaskLabels(id), watchers: getWatchers(id), checklist_progress: { total: checklist.total, completed: checklist.completed || 0 } };
 }
 
 function addDays(dateStr, days) {
@@ -141,7 +161,7 @@ function createNextOccurrence(task) {
 
 router.get('/project/:projectId', (req, res) => {
   const { projectId } = req.params;
-  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
+  const project = db.prepare('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL').get(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
   const labelFilter = req.query.label;
@@ -149,11 +169,11 @@ router.get('/project/:projectId', (req, res) => {
   let tasks = db.prepare(`
     SELECT t.*, u.name as assignee_name, u.email as assignee_email,
            r.name as reporter_name, r.email as reporter_email,
-           (SELECT COUNT(*) FROM tasks WHERE parent_id = t.id) as subtask_count
+           (SELECT COUNT(*) FROM tasks WHERE parent_id = t.id AND deleted_at IS NULL) as subtask_count
     FROM tasks t
     LEFT JOIN users u ON t.assignee_id = u.id
     LEFT JOIN users r ON t.reporter_id = r.id
-    WHERE t.project_id = ?
+    WHERE t.project_id = ? AND t.deleted_at IS NULL
     ORDER BY t.position ASC, t.created_at DESC
   `).all(projectId);
 
@@ -175,14 +195,19 @@ router.get('/project/:projectId', (req, res) => {
 
 router.post('/project/:projectId', requireRole('admin', 'member'), (req, res) => {
   const { projectId } = req.params;
-  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
+  const project = db.prepare('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL').get(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
   const { title, description, status, priority, due_date, assignee_id, labels, start_date, estimated_hours, time_spent, reporter_id, archived, parent_id, recurrence, recurrence_end } = req.body;
   if (!title) return res.status(400).json({ error: 'title is required' });
 
+  if (status != null && !VALID_STATUS.includes(status)) return res.status(400).json({ error: 'Invalid status' });
+  if (priority != null && !VALID_PRIORITY.includes(priority)) return res.status(400).json({ error: 'Invalid priority' });
+  if (!isValidDate(due_date)) return res.status(400).json({ error: 'Invalid due_date format (expected YYYY-MM-DD)' });
+  if (!isValidDate(start_date)) return res.status(400).json({ error: 'Invalid start_date format (expected YYYY-MM-DD)' });
+
   if (parent_id != null) {
-    const parent = db.prepare('SELECT * FROM tasks WHERE id = ?').get(parent_id);
+    const parent = db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(parent_id);
     if (!parent) return res.status(400).json({ error: 'Parent task not found' });
     if (parent.project_id !== Number(projectId)) return res.status(400).json({ error: 'Parent task must belong to the same project' });
   }
@@ -222,13 +247,22 @@ router.post('/project/:projectId', requireRole('admin', 'member'), (req, res) =>
 
   logActivity(req.user.id, 'task.created', 'task', taskWithLabels.id, taskWithLabels.title);
 
+  if (assignee_id != null) {
+    notifyTaskAssigned(taskWithLabels, assignee_id);
+  }
+
   res.status(201).json(taskWithLabels);
 });
 
 router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
   const { id } = req.params;
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
+  const task = db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  if (req.body.status !== undefined && !VALID_STATUS.includes(req.body.status)) return res.status(400).json({ error: 'Invalid status' });
+  if (req.body.priority !== undefined && !VALID_PRIORITY.includes(req.body.priority)) return res.status(400).json({ error: 'Invalid priority' });
+  if (req.body.due_date !== undefined && !isValidDate(req.body.due_date)) return res.status(400).json({ error: 'Invalid due_date format (expected YYYY-MM-DD)' });
+  if (req.body.start_date !== undefined && !isValidDate(req.body.start_date)) return res.status(400).json({ error: 'Invalid start_date format (expected YYYY-MM-DD)' });
 
   if (req.body.parent_id !== undefined) {
     const newParentId = req.body.parent_id;
@@ -236,7 +270,7 @@ router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
       if (Number(newParentId) === Number(id)) {
         return res.status(400).json({ error: 'A task cannot be its own parent' });
       }
-      const parent = db.prepare('SELECT * FROM tasks WHERE id = ?').get(newParentId);
+      const parent = db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(newParentId);
       if (!parent) return res.status(400).json({ error: 'Parent task not found' });
       if (parent.project_id !== task.project_id) return res.status(400).json({ error: 'Parent task must belong to the same project' });
       const descendants = getDescendantIds(Number(id));
@@ -277,6 +311,9 @@ router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
   }
   if (req.body.assignee_id !== undefined && Number(req.body.assignee_id || 0) !== Number(task.assignee_id || 0)) {
     logActivity(req.user.id, 'task.assigned', 'task', updated.id, updated.title);
+    if (req.body.assignee_id != null) {
+      notifyTaskAssigned(updated, req.body.assignee_id);
+    }
   }
   if (req.body.title !== undefined && req.body.title !== task.title) {
     logActivity(req.user.id, 'task.updated', 'task', updated.id, updated.title, { field: 'title', from: task.title, to: updated.title });
@@ -290,6 +327,7 @@ router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
 
   if (req.body.status === 'done' && task.status !== 'done') {
     createNextOccurrence(updated);
+    notifyDependencyDone(updated);
   }
 
   res.json(updated);
@@ -297,11 +335,10 @@ router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
 
 router.delete('/:id', requireRole('admin', 'member'), (req, res) => {
   const { id } = req.params;
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
+  const task = db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
-  db.prepare('UPDATE tasks SET parent_id = NULL WHERE parent_id = ?').run(id);
-  db.prepare('DELETE FROM tasks WHERE id = ?').run(id);
+  db.prepare("UPDATE tasks SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(id);
 
   logActivity(req.user.id, 'task.deleted', 'task', id, task.title);
 
@@ -312,7 +349,7 @@ router.post('/:id/reorder', requireRole('admin', 'member'), (req, res) => {
   const { id } = req.params;
   const { status, position } = req.body;
 
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
+  const task = db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
   const oldStatus = task.status;
@@ -329,7 +366,7 @@ router.post('/:id/reorder', requireRole('admin', 'member'), (req, res) => {
   const newStatus = status !== undefined ? status : oldStatus;
 
   const siblings = db.prepare(
-    'SELECT id FROM tasks WHERE project_id = ? AND status = ? AND id != ? ORDER BY position ASC'
+    'SELECT id FROM tasks WHERE project_id = ? AND status = ? AND id != ? AND deleted_at IS NULL ORDER BY position ASC'
   ).all(task.project_id, newStatus, id);
 
   const updatePos = db.prepare('UPDATE tasks SET position = ?, updated_at = datetime(\'now\') WHERE id = ?');
@@ -348,6 +385,7 @@ router.post('/:id/reorder', requireRole('admin', 'member'), (req, res) => {
     logActivity(req.user.id, 'task.status_changed', 'task', updated.id, updated.title, { from: oldStatus, to: status });
     if (status === 'done' && oldStatus !== 'done') {
       createNextOccurrence(updated);
+      notifyDependencyDone(updated);
     }
   }
 
@@ -360,10 +398,10 @@ router.post('/:id/dependencies', requireRole('admin', 'member'), (req, res) => {
 
   if (depends_on_id == null) return res.status(400).json({ error: 'depends_on_id is required' });
 
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
+  const task = db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
-  const dep = db.prepare('SELECT * FROM tasks WHERE id = ?').get(depends_on_id);
+  const dep = db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(depends_on_id);
   if (!dep) return res.status(404).json({ error: 'Dependency task not found' });
 
   if (Number(id) === Number(depends_on_id)) {
@@ -398,7 +436,7 @@ router.post('/:id/dependencies', requireRole('admin', 'member'), (req, res) => {
 
 router.delete('/:id/dependencies/:dependsOnId', requireRole('admin', 'member'), (req, res) => {
   const { id, dependsOnId } = req.params;
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
+  const task = db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
   db.prepare('DELETE FROM task_dependencies WHERE task_id = ? AND depends_on_id = ?').run(id, dependsOnId);
@@ -410,7 +448,7 @@ router.delete('/:id/dependencies/:dependsOnId', requireRole('admin', 'member'), 
 
 router.delete('/:id/dependencies', requireRole('admin', 'member'), (req, res) => {
   const { id } = req.params;
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
+  const task = db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
   db.prepare('DELETE FROM task_dependencies WHERE task_id = ?').run(id);
@@ -422,7 +460,7 @@ router.delete('/:id/dependencies', requireRole('admin', 'member'), (req, res) =>
 
 router.get('/:id/status-history', (req, res) => {
   const { id } = req.params;
-  const task = db.prepare('SELECT id FROM tasks WHERE id = ?').get(id);
+  const task = db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
   const history = db.prepare(`
@@ -437,7 +475,7 @@ router.get('/:id/status-history', (req, res) => {
 
 router.get('/:id/checklist', (req, res) => {
   const { id } = req.params;
-  const task = db.prepare('SELECT id FROM tasks WHERE id = ?').get(id);
+  const task = db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
   const items = db.prepare(
@@ -451,7 +489,7 @@ router.post('/:id/checklist', requireRole('admin', 'member'), (req, res) => {
   const { text } = req.body;
   if (!text || !text.trim()) return res.status(400).json({ error: 'text is required' });
 
-  const task = db.prepare('SELECT id FROM tasks WHERE id = ?').get(id);
+  const task = db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
   const maxPos = db.prepare(
@@ -505,7 +543,7 @@ router.post('/:id/checklist/reorder', requireRole('admin', 'member'), (req, res)
   const { orderedIds } = req.body;
   if (!Array.isArray(orderedIds)) return res.status(400).json({ error: 'orderedIds is required' });
 
-  const task = db.prepare('SELECT id FROM tasks WHERE id = ?').get(id);
+  const task = db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
   const updatePos = db.prepare('UPDATE task_checklist SET position = ? WHERE id = ? AND task_id = ?');
@@ -520,6 +558,68 @@ router.post('/:id/checklist/reorder', requireRole('admin', 'member'), (req, res)
     'SELECT * FROM task_checklist WHERE task_id = ? ORDER BY position ASC, id ASC'
   ).all(id);
   res.json(items);
+});
+
+router.get('/:id/time-entries', (req, res) => {
+  const { id } = req.params;
+  const task = db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  const entries = db.prepare(`
+    SELECT e.*, u.name as user_name
+    FROM time_entries e
+    LEFT JOIN users u ON u.id = e.user_id
+    WHERE e.task_id = ?
+    ORDER BY e.created_at DESC
+  `).all(id);
+  res.json(entries);
+});
+
+router.post('/:id/time-entries', requireRole('admin', 'member'), (req, res) => {
+  const { id } = req.params;
+  const { minutes, note, started_at, ended_at } = req.body;
+
+  const task = db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  const mins = Number(minutes);
+  if (minutes == null || Number.isNaN(mins) || mins < 0) {
+    return res.status(400).json({ error: 'minutes must be a non-negative number' });
+  }
+
+  const result = db.prepare(
+    'INSERT INTO time_entries (task_id, user_id, started_at, ended_at, minutes, note) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(id, req.user.id || null, started_at || null, ended_at || null, mins, note || null);
+
+  recomputeTimeSpent(id);
+
+  const entry = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(result.lastInsertRowid);
+  res.status(201).json(entry);
+});
+
+router.get('/:id/watchers', (req, res) => {
+  const { id } = req.params;
+  const task = db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+  res.json(getWatchers(id));
+});
+
+router.post('/:id/watchers', requireRole('admin', 'member'), (req, res) => {
+  const { id } = req.params;
+  const task = db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  db.prepare('INSERT OR IGNORE INTO task_watchers (task_id, user_id) VALUES (?, ?)').run(id, req.user.id);
+  res.status(201).json(getWatchers(id));
+});
+
+router.delete('/:id/watchers', requireRole('admin', 'member'), (req, res) => {
+  const { id } = req.params;
+  const task = db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  db.prepare('DELETE FROM task_watchers WHERE task_id = ? AND user_id = ?').run(id, req.user.id);
+  res.json(getWatchers(id));
 });
 
 export default router;

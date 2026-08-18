@@ -14,6 +14,9 @@ import activityRoutes from './routes/activity.js';
 import searchRoutes from './routes/search.js';
 import tagRoutes from './routes/tags.js';
 import labelRoutes from './routes/labels.js';
+import timeEntryRoutes from './routes/time_entries.js';
+import attachmentRoutes from './routes/attachments.js';
+import notificationRoutes from './routes/notifications.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -39,6 +42,9 @@ app.use('/api/activity', activityRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/tags', tagRoutes);
 app.use('/api/labels', labelRoutes);
+app.use('/api/time', timeEntryRoutes);
+app.use('/api/attachments', attachmentRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 const frontendDist = (() => {
   const containerPath = path.join(__dirname, 'frontend', 'dist');

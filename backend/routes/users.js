@@ -19,9 +19,9 @@ router.get('/', (req, res) => {
   const users = db.prepare(`
     SELECT
       u.id, u.email, u.name, u.role, u.created_at, u.last_login_at,
-      (SELECT COUNT(*) FROM projects WHERE owner_id = u.id) as projects_owned,
-      (SELECT COUNT(*) FROM tasks WHERE assignee_id = u.id) as tasks_assigned,
-      (SELECT COUNT(*) FROM tasks WHERE assignee_id = u.id AND status = 'done') as tasks_completed,
+      (SELECT COUNT(*) FROM projects WHERE owner_id = u.id AND deleted_at IS NULL) as projects_owned,
+      (SELECT COUNT(*) FROM tasks WHERE assignee_id = u.id AND deleted_at IS NULL) as tasks_assigned,
+      (SELECT COUNT(*) FROM tasks WHERE assignee_id = u.id AND deleted_at IS NULL AND status = 'done') as tasks_completed,
       (SELECT COUNT(*) FROM comments WHERE user_id = u.id) as comments
     FROM users u
     ORDER BY u.name ASC

@@ -27,7 +27,7 @@ router.get('/', (req, res) => {
     SELECT a.*, u.name as user_name
     FROM activity_log a
     LEFT JOIN users u ON a.user_id = u.id
-    LEFT JOIN tasks t ON a.entity_type = 'task' AND a.entity_id = t.id
+    LEFT JOIN tasks t ON a.entity_type = 'task' AND a.entity_id = t.id AND t.deleted_at IS NULL
     ${where}
     ORDER BY a.created_at DESC, a.id DESC
     LIMIT ?

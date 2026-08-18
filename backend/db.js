@@ -9,6 +9,11 @@ if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
 
+export const uploadsDir = path.join(dbDir, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
 const db = new Database(dbPath);
 
 db.pragma('journal_mode = WAL');
@@ -35,10 +40,12 @@ db.exec(`
     due_date TEXT,
     owner_id INTEGER,
     priority TEXT DEFAULT 'medium',
-    progress INTEGER DEFAULT 0,
+    progress INTEGER DEFAULT 0 CHECK(progress BETWEEN 0 AND 100),
     tags TEXT DEFAULT '',
+    deleted_at TEXT,
     created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE SET NULL
   );
 
   CREATE TABLE IF NOT EXISTS tasks (
@@ -58,10 +65,14 @@ db.exec(`
     reporter_id INTEGER,
     archived INTEGER DEFAULT 0,
     parent_id INTEGER,
+    recurrence TEXT NOT NULL DEFAULT 'none',
+    recurrence_end TEXT,
+    deleted_at TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
     FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE SET NULL,
     FOREIGN KEY (parent_id) REFERENCES tasks(id) ON DELETE SET NULL
   );
 
@@ -143,6 +154,53 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
   );
 
+  CREATE TABLE IF NOT EXISTS time_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL,
+    user_id INTEGER,
+    started_at TEXT,
+    ended_at TEXT,
+    minutes INTEGER DEFAULT 0,
+    note TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS attachments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL,
+    filename TEXT NOT NULL,
+    stored_path TEXT NOT NULL,
+    size INTEGER DEFAULT 0,
+    mime_type TEXT,
+    uploaded_by INTEGER,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS task_watchers (
+    task_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (task_id, user_id),
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    type TEXT NOT NULL,
+    title TEXT,
+    body TEXT,
+    payload TEXT,
+    read INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
   CREATE INDEX IF NOT EXISTS idx_projects_owner_id ON projects(owner_id);
   CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id);
   CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
@@ -153,61 +211,101 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_activity_entity ON activity_log(entity_type, entity_id);
   CREATE INDEX IF NOT EXISTS idx_task_deps_task ON task_dependencies(task_id);
   CREATE INDEX IF NOT EXISTS idx_task_checklist_task ON task_checklist(task_id);
+  CREATE INDEX IF NOT EXISTS idx_time_entries_task ON time_entries(task_id);
+  CREATE INDEX IF NOT EXISTS idx_attachments_task ON attachments(task_id);
+  CREATE INDEX IF NOT EXISTS idx_task_watchers_user ON task_watchers(user_id);
+  CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
 `);
 
-function migrate() {
-  const userCols = db.pragma('table_info(users)').map(r => r.name);
-  const projectCols = db.pragma('table_info(projects)').map(r => r.name);
-  const taskCols = db.pragma('table_info(tasks)').map(r => r.name);
+function hasColumn(table, column) {
+  return db.pragma(`table_info(${table})`).some(r => r.name === column);
+}
 
-  if (!userCols.includes('role')) {
-    db.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'member'");
-    console.log('Migrated: users.role');
+function tableHasForeignKey(table, column) {
+  const fks = db.pragma(`foreign_key_list(${table})`);
+  return fks.some(fk => fk.from === column);
+}
+
+function projectsHasProgressCheck() {
+  const row = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'projects'").get();
+  return !!(row && row.sql && /progress\s+BETWEEN\s+0\s+AND\s+100/i.test(row.sql));
+}
+
+function recreateProjectsTable() {
+  db.pragma('foreign_keys = OFF');
+  db.pragma('legacy_alter_table = ON');
+  try {
+    db.exec(`
+      ALTER TABLE projects RENAME TO projects_old;
+      CREATE TABLE projects (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        color TEXT DEFAULT '#6366f1',
+        archived INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'active',
+        start_date TEXT,
+        due_date TEXT,
+        owner_id INTEGER,
+        priority TEXT DEFAULT 'medium',
+        progress INTEGER DEFAULT 0 CHECK(progress BETWEEN 0 AND 100),
+        tags TEXT DEFAULT '',
+        deleted_at TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE SET NULL
+      );
+      INSERT INTO projects (id, name, description, color, archived, status, start_date, due_date, owner_id, priority, progress, tags, deleted_at, created_at, updated_at)
+        SELECT id, name, description, color, archived, status, start_date, due_date, owner_id, priority, MIN(MAX(progress, 0), 100), tags, NULL, created_at, updated_at FROM projects_old;
+      DROP TABLE projects_old;
+    `);
+  } finally {
+    db.pragma('legacy_alter_table = OFF');
+    db.pragma('foreign_keys = ON');
   }
+}
 
-  if (!userCols.includes('last_login_at')) {
-    db.exec('ALTER TABLE users ADD COLUMN last_login_at TEXT');
-    console.log('Migrated: users.last_login_at');
+function recreateTasksTable() {
+  db.pragma('foreign_keys = OFF');
+  db.pragma('legacy_alter_table = ON');
+  try {
+    db.exec(`
+      ALTER TABLE tasks RENAME TO tasks_old;
+      CREATE TABLE tasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        status TEXT DEFAULT 'todo' CHECK(status IN ('todo','in_progress','done')),
+        priority TEXT DEFAULT 'medium' CHECK(priority IN ('low','medium','high')),
+        due_date TEXT,
+        assignee_id INTEGER,
+        position INTEGER DEFAULT 0,
+        labels TEXT DEFAULT '',
+        start_date TEXT,
+        estimated_hours REAL,
+        time_spent REAL DEFAULT 0,
+        reporter_id INTEGER,
+        archived INTEGER DEFAULT 0,
+        parent_id INTEGER,
+        recurrence TEXT NOT NULL DEFAULT 'none',
+        recurrence_end TEXT,
+        deleted_at TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE SET NULL,
+        FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE SET NULL,
+        FOREIGN KEY (parent_id) REFERENCES tasks(id) ON DELETE SET NULL
+      );
+      INSERT INTO tasks (id, project_id, title, description, status, priority, due_date, assignee_id, position, labels, start_date, estimated_hours, time_spent, reporter_id, archived, parent_id, recurrence, recurrence_end, deleted_at, created_at, updated_at)
+        SELECT id, project_id, title, description, status, priority, due_date, assignee_id, position, labels, start_date, estimated_hours, time_spent, reporter_id, archived, parent_id, recurrence, recurrence_end, NULL, created_at, updated_at FROM tasks_old;
+      DROP TABLE tasks_old;
+    `);
+  } finally {
+    db.pragma('legacy_alter_table = OFF');
+    db.pragma('foreign_keys = ON');
   }
-
-  const projectMigrations = [
-    { name: 'status', def: "TEXT DEFAULT 'active'" },
-    { name: 'start_date', def: 'TEXT' },
-    { name: 'due_date', def: 'TEXT' },
-    { name: 'owner_id', def: 'INTEGER' },
-    { name: 'priority', def: "TEXT DEFAULT 'medium'" },
-    { name: 'progress', def: 'INTEGER DEFAULT 0' },
-    { name: 'tags', def: "TEXT DEFAULT ''" },
-  ];
-
-  const taskMigrations = [
-    { name: 'labels', def: "TEXT DEFAULT ''" },
-    { name: 'start_date', def: 'TEXT' },
-    { name: 'estimated_hours', def: 'REAL' },
-    { name: 'time_spent', def: 'REAL DEFAULT 0' },
-    { name: 'reporter_id', def: 'INTEGER' },
-    { name: 'archived', def: 'INTEGER DEFAULT 0' },
-    { name: 'parent_id', def: 'INTEGER REFERENCES tasks(id) ON DELETE SET NULL' },
-    { name: 'recurrence', def: "TEXT NOT NULL DEFAULT 'none'" },
-    { name: 'recurrence_end', def: 'TEXT' },
-  ];
-
-  for (const col of projectMigrations) {
-    if (!projectCols.includes(col.name)) {
-      db.exec(`ALTER TABLE projects ADD COLUMN ${col.name} ${col.def}`);
-      console.log(`Migrated: projects.${col.name}`);
-    }
-  }
-
-  for (const col of taskMigrations) {
-    if (!taskCols.includes(col.name)) {
-      db.exec(`ALTER TABLE tasks ADD COLUMN ${col.name} ${col.def}`);
-      console.log(`Migrated: tasks.${col.name}`);
-    }
-  }
-
-  recreateTableWithForeignKeys();
-  backfillTagsAndLabels();
 }
 
 function backfillTagsAndLabels() {
@@ -243,92 +341,139 @@ function backfillTagsAndLabels() {
   txn();
 }
 
-function tableHasForeignKey(table, column) {
-  const fks = db.pragma(`foreign_key_list(${table})`);
-  return fks.some(fk => fk.from === column);
+const migrations = [
+  {
+    name: 'users_role',
+    up: () => {
+      if (!hasColumn('users', 'role')) {
+        db.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'member'");
+      }
+    }
+  },
+  {
+    name: 'users_last_login_at',
+    up: () => {
+      if (!hasColumn('users', 'last_login_at')) {
+        db.exec('ALTER TABLE users ADD COLUMN last_login_at TEXT');
+      }
+    }
+  },
+  {
+    name: 'projects_status',
+    up: () => { if (!hasColumn('projects', 'status')) db.exec("ALTER TABLE projects ADD COLUMN status TEXT DEFAULT 'active'"); }
+  },
+  {
+    name: 'projects_start_date',
+    up: () => { if (!hasColumn('projects', 'start_date')) db.exec('ALTER TABLE projects ADD COLUMN start_date TEXT'); }
+  },
+  {
+    name: 'projects_due_date',
+    up: () => { if (!hasColumn('projects', 'due_date')) db.exec('ALTER TABLE projects ADD COLUMN due_date TEXT'); }
+  },
+  {
+    name: 'projects_owner_id',
+    up: () => { if (!hasColumn('projects', 'owner_id')) db.exec('ALTER TABLE projects ADD COLUMN owner_id INTEGER'); }
+  },
+  {
+    name: 'projects_priority',
+    up: () => { if (!hasColumn('projects', 'priority')) db.exec("ALTER TABLE projects ADD COLUMN priority TEXT DEFAULT 'medium'"); }
+  },
+  {
+    name: 'projects_progress',
+    up: () => { if (!hasColumn('projects', 'progress')) db.exec('ALTER TABLE projects ADD COLUMN progress INTEGER DEFAULT 0'); }
+  },
+  {
+    name: 'projects_tags',
+    up: () => { if (!hasColumn('projects', 'tags')) db.exec("ALTER TABLE projects ADD COLUMN tags TEXT DEFAULT ''"); }
+  },
+  {
+    name: 'tasks_labels',
+    up: () => { if (!hasColumn('tasks', 'labels')) db.exec("ALTER TABLE tasks ADD COLUMN labels TEXT DEFAULT ''"); }
+  },
+  {
+    name: 'tasks_start_date',
+    up: () => { if (!hasColumn('tasks', 'start_date')) db.exec('ALTER TABLE tasks ADD COLUMN start_date TEXT'); }
+  },
+  {
+    name: 'tasks_estimated_hours',
+    up: () => { if (!hasColumn('tasks', 'estimated_hours')) db.exec('ALTER TABLE tasks ADD COLUMN estimated_hours REAL'); }
+  },
+  {
+    name: 'tasks_time_spent',
+    up: () => { if (!hasColumn('tasks', 'time_spent')) db.exec('ALTER TABLE tasks ADD COLUMN time_spent REAL DEFAULT 0'); }
+  },
+  {
+    name: 'tasks_reporter_id',
+    up: () => { if (!hasColumn('tasks', 'reporter_id')) db.exec('ALTER TABLE tasks ADD COLUMN reporter_id INTEGER'); }
+  },
+  {
+    name: 'tasks_archived',
+    up: () => { if (!hasColumn('tasks', 'archived')) db.exec('ALTER TABLE tasks ADD COLUMN archived INTEGER DEFAULT 0'); }
+  },
+  {
+    name: 'tasks_parent_id',
+    up: () => { if (!hasColumn('tasks', 'parent_id')) db.exec('ALTER TABLE tasks ADD COLUMN parent_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL'); }
+  },
+  {
+    name: 'tasks_recurrence',
+    up: () => { if (!hasColumn('tasks', 'recurrence')) db.exec("ALTER TABLE tasks ADD COLUMN recurrence TEXT NOT NULL DEFAULT 'none'"); }
+  },
+  {
+    name: 'tasks_recurrence_end',
+    up: () => { if (!hasColumn('tasks', 'recurrence_end')) db.exec('ALTER TABLE tasks ADD COLUMN recurrence_end TEXT'); }
+  },
+  {
+    name: 'projects_owner_id_fk_progress_check_deleted_at',
+    transactional: false,
+    up: () => {
+      if (!tableHasForeignKey('projects', 'owner_id') || !projectsHasProgressCheck() || !hasColumn('projects', 'deleted_at')) {
+        recreateProjectsTable();
+      }
+    }
+  },
+  {
+    name: 'tasks_reporter_id_fk_deleted_at',
+    transactional: false,
+    up: () => {
+      if (!tableHasForeignKey('tasks', 'reporter_id') || !hasColumn('tasks', 'deleted_at')) {
+        recreateTasksTable();
+      }
+    }
+  },
+  {
+    name: 'backfill_tags_labels',
+    up: () => { backfillTagsAndLabels(); }
+  }
+];
+
+function runMigrations() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT UNIQUE,
+      applied_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+
+  const applied = new Set(db.prepare('SELECT name FROM schema_migrations').all().map(r => r.name));
+
+  for (const m of migrations) {
+    if (applied.has(m.name)) continue;
+    try {
+      if (m.transactional === false) {
+        m.up();
+      } else {
+        db.transaction(m.up)();
+      }
+      db.prepare('INSERT INTO schema_migrations (name) VALUES (?)').run(m.name);
+      console.log('Migrated:', m.name);
+    } catch (err) {
+      console.error('Migration failed:', m.name, err.message);
+      throw err;
+    }
+  }
 }
 
-function recreateTableWithForeignKeys() {
-  // Recreate `projects` to add owner_id FK if missing.
-  if (!tableHasForeignKey('projects', 'owner_id')) {
-    db.pragma('foreign_keys = OFF');
-    db.pragma('legacy_alter_table = ON');
-    try {
-      db.exec(`
-        ALTER TABLE projects RENAME TO projects_old;
-        CREATE TABLE projects (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL,
-          description TEXT DEFAULT '',
-          color TEXT DEFAULT '#6366f1',
-          archived INTEGER DEFAULT 0,
-          status TEXT DEFAULT 'active',
-          start_date TEXT,
-          due_date TEXT,
-          owner_id INTEGER,
-          priority TEXT DEFAULT 'medium',
-          progress INTEGER DEFAULT 0,
-          tags TEXT DEFAULT '',
-          created_at TEXT DEFAULT (datetime('now')),
-          updated_at TEXT DEFAULT (datetime('now')),
-          FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE SET NULL
-        );
-        INSERT INTO projects (id, name, description, color, archived, status, start_date, due_date, owner_id, priority, progress, tags, created_at, updated_at)
-          SELECT id, name, description, color, archived, status, start_date, due_date, owner_id, priority, progress, tags, created_at, updated_at FROM projects_old;
-        DROP TABLE projects_old;
-      `);
-    } finally {
-      db.pragma('legacy_alter_table = OFF');
-      db.pragma('foreign_keys = ON');
-    }
-    console.log('Migrated: projects.owner_id foreign key');
-  }
-
-  // Recreate `tasks` to add reporter_id FK if missing.
-  if (!tableHasForeignKey('tasks', 'reporter_id')) {
-    db.pragma('foreign_keys = OFF');
-    db.pragma('legacy_alter_table = ON');
-    try {
-      db.exec(`
-        ALTER TABLE tasks RENAME TO tasks_old;
-        CREATE TABLE tasks (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          project_id INTEGER NOT NULL,
-          title TEXT NOT NULL,
-          description TEXT DEFAULT '',
-          status TEXT DEFAULT 'todo' CHECK(status IN ('todo','in_progress','done')),
-          priority TEXT DEFAULT 'medium' CHECK(priority IN ('low','medium','high')),
-          due_date TEXT,
-          assignee_id INTEGER,
-          position INTEGER DEFAULT 0,
-          labels TEXT DEFAULT '',
-          start_date TEXT,
-          estimated_hours REAL,
-          time_spent REAL DEFAULT 0,
-          reporter_id INTEGER,
-          archived INTEGER DEFAULT 0,
-          parent_id INTEGER,
-          recurrence TEXT NOT NULL DEFAULT 'none',
-          recurrence_end TEXT,
-          created_at TEXT DEFAULT (datetime('now')),
-          updated_at TEXT DEFAULT (datetime('now')),
-          FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-          FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE SET NULL,
-          FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE SET NULL,
-          FOREIGN KEY (parent_id) REFERENCES tasks(id) ON DELETE SET NULL
-        );
-        INSERT INTO tasks (id, project_id, title, description, status, priority, due_date, assignee_id, position, labels, start_date, estimated_hours, time_spent, reporter_id, archived, parent_id, recurrence, recurrence_end, created_at, updated_at)
-          SELECT id, project_id, title, description, status, priority, due_date, assignee_id, position, labels, start_date, estimated_hours, time_spent, reporter_id, archived, parent_id, recurrence, recurrence_end, created_at, updated_at FROM tasks_old;
-        DROP TABLE tasks_old;
-      `);
-    } finally {
-      db.pragma('legacy_alter_table = OFF');
-      db.pragma('foreign_keys = ON');
-    }
-    console.log('Migrated: tasks.reporter_id foreign key');
-  }
-}
-
-migrate();
+runMigrations();
 
 export default db;

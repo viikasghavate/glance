@@ -8,6 +8,11 @@ const router = Router();
 
 router.use(requireAuth);
 
+function isValidDate(value) {
+  if (value == null || value === '') return true;
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value));
+}
+
 router.get('/', (req, res) => {
   const includeArchived = req.query.includeArchived === 'true';
   const tagFilter = req.query.tag;
@@ -16,11 +21,12 @@ router.get('/', (req, res) => {
       ? `SELECT p.*, u.name as owner_name, u.email as owner_email
          FROM projects p
          LEFT JOIN users u ON p.owner_id = u.id
+         WHERE p.deleted_at IS NULL
          ORDER BY p.created_at DESC`
       : `SELECT p.*, u.name as owner_name, u.email as owner_email
          FROM projects p
          LEFT JOIN users u ON p.owner_id = u.id
-         WHERE p.archived = 0
+         WHERE p.archived = 0 AND p.deleted_at IS NULL
          ORDER BY p.created_at DESC`
   ).all();
 
@@ -39,7 +45,7 @@ router.get('/', (req, res) => {
   const stmt = db.prepare(`
     SELECT project_id, status, COUNT(*) as count
     FROM tasks
-    WHERE project_id IN (${filtered.map(() => '?').join(',') || '0'})
+    WHERE deleted_at IS NULL AND project_id IN (${filtered.map(() => '?').join(',') || '0'})
     GROUP BY project_id, status
   `);
   const counts = stmt.all(...filtered.map(p => p.id));
@@ -63,6 +69,12 @@ router.get('/', (req, res) => {
 router.post('/', requireRole('admin', 'member'), (req, res) => {
   const { name, description, color, status, start_date, due_date, owner_id, priority, progress, tags } = req.body;
   if (!name) return res.status(400).json({ error: 'name is required' });
+
+  if (progress != null && (Number.isNaN(Number(progress)) || Number(progress) < 0 || Number(progress) > 100)) {
+    return res.status(400).json({ error: 'progress must be between 0 and 100' });
+  }
+  if (!isValidDate(start_date)) return res.status(400).json({ error: 'Invalid start_date format (expected YYYY-MM-DD)' });
+  if (!isValidDate(due_date)) return res.status(400).json({ error: 'Invalid due_date format (expected YYYY-MM-DD)' });
 
   const result = db.prepare(
     `INSERT INTO projects (name, description, color, status, start_date, due_date, owner_id, priority, progress, tags)
@@ -100,7 +112,7 @@ router.get('/:id', (req, res) => {
     SELECT p.*, u.name as owner_name, u.email as owner_email
     FROM projects p
     LEFT JOIN users u ON p.owner_id = u.id
-    WHERE p.id = ?
+    WHERE p.id = ? AND p.deleted_at IS NULL
   `).get(id);
   if (!project) return res.status(404).json({ error: 'Project not found' });
   project.archived = !!project.archived;
@@ -110,8 +122,14 @@ router.get('/:id', (req, res) => {
 
 router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
   const { id } = req.params;
-  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
+  const project = db.prepare('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!project) return res.status(404).json({ error: 'Project not found' });
+
+  if (req.body.progress !== undefined && (Number.isNaN(Number(req.body.progress)) || Number(req.body.progress) < 0 || Number(req.body.progress) > 100)) {
+    return res.status(400).json({ error: 'progress must be between 0 and 100' });
+  }
+  if (req.body.start_date !== undefined && !isValidDate(req.body.start_date)) return res.status(400).json({ error: 'Invalid start_date format (expected YYYY-MM-DD)' });
+  if (req.body.due_date !== undefined && !isValidDate(req.body.due_date)) return res.status(400).json({ error: 'Invalid due_date format (expected YYYY-MM-DD)' });
 
   const fields = ['name', 'description', 'color', 'archived', 'status', 'start_date', 'due_date', 'owner_id', 'priority', 'progress', 'tags'];
   const updates = [];
@@ -137,7 +155,7 @@ router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
     SELECT p.*, u.name as owner_name, u.email as owner_email
     FROM projects p
     LEFT JOIN users u ON p.owner_id = u.id
-    WHERE p.id = ?
+    WHERE p.id = ? AND p.deleted_at IS NULL
   `).get(id);
   updated.archived = !!updated.archived;
   updated.tagList = getProjectTags(id);
@@ -147,10 +165,15 @@ router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
 
 router.delete('/:id', requireRole('admin', 'member'), (req, res) => {
   const { id } = req.params;
-  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
+  const project = db.prepare('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
-  db.prepare('DELETE FROM projects WHERE id = ?').run(id);
+  const txn = db.transaction(() => {
+    db.prepare("UPDATE projects SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(id);
+    db.prepare("UPDATE tasks SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE project_id = ? AND deleted_at IS NULL").run(id);
+  });
+  txn();
+
   logActivity(req.user.id, 'project.deleted', 'project', id, project.name);
   res.json({ success: true });
 });

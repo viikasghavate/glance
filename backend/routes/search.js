@@ -17,7 +17,7 @@ router.get('/', (req, res) => {
   const projects = db.prepare(`
     SELECT id, name, color
     FROM projects
-    WHERE name LIKE ? OR description LIKE ?
+    WHERE deleted_at IS NULL AND (name LIKE ? OR description LIKE ?)
     ORDER BY name ASC
     LIMIT 10
   `).all(like, like);
@@ -26,7 +26,7 @@ router.get('/', (req, res) => {
     SELECT t.id, t.title, t.project_id, p.name as project_name, t.status
     FROM tasks t
     LEFT JOIN projects p ON p.id = t.project_id
-    WHERE t.title LIKE ? OR t.description LIKE ? OR t.labels LIKE ?
+    WHERE t.deleted_at IS NULL AND (t.title LIKE ? OR t.description LIKE ? OR t.labels LIKE ?)
     ORDER BY t.title ASC
     LIMIT 10
   `).all(like, like, like);
@@ -36,7 +36,7 @@ router.get('/', (req, res) => {
     FROM comments c
     JOIN tasks t ON t.id = c.task_id
     JOIN users u ON u.id = c.user_id
-    WHERE c.body LIKE ?
+    WHERE t.deleted_at IS NULL AND c.body LIKE ?
     ORDER BY c.created_at DESC
     LIMIT 10
   `).all(like);
