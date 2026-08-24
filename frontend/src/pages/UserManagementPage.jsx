@@ -30,6 +30,10 @@ export default function UserManagementPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [resetUser, setResetUser] = useState(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [resetError, setResetError] = useState('');
+  const [resetSubmitting, setResetSubmitting] = useState(false);
 
   useEffect(() => {
     if (!hasRole('admin')) {
@@ -101,6 +105,28 @@ export default function UserManagementPage() {
     } catch (err) {
       setError(err.message);
       setConfirmDelete(null);
+    }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setResetError('');
+    if (!newPassword || newPassword.length < 4) {
+      setResetError('Password must be at least 4 characters');
+      return;
+    }
+    setResetSubmitting(true);
+    try {
+      await apiFetch(`/users/${resetUser.id}/password`, {
+        method: 'PATCH',
+        body: JSON.stringify({ password: newPassword })
+      });
+      setResetUser(null);
+      setNewPassword('');
+    } catch (err) {
+      setResetError(err.message);
+    } finally {
+      setResetSubmitting(false);
     }
   };
 
@@ -188,6 +214,12 @@ export default function UserManagementPage() {
                       </button>
                       <button
                         className="btn-ghost btn-sm"
+                        onClick={() => { setResetUser(u); setNewPassword(''); setResetError(''); }}
+                      >
+                        Reset Password
+                      </button>
+                      <button
+                        className="btn-ghost btn-sm"
                         style={{ color: 'var(--danger)' }}
                         onClick={() => setConfirmDelete(u)}
                         disabled={isLastAdminUser(u)}
@@ -231,6 +263,37 @@ export default function UserManagementPage() {
               <button className="btn-ghost" onClick={() => setConfirmDelete(null)}>Cancel</button>
               <button className="btn-danger" onClick={handleDelete}>Remove</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {resetUser && (
+        <div className="modal-overlay" onClick={() => setResetUser(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <h2>Reset Password</h2>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>
+              Set a new password for <strong>{resetUser.name}</strong>.
+            </p>
+            {resetError && <div className="error-msg">{resetError}</div>}
+            <form onSubmit={handleResetPassword}>
+              <div className="form-group">
+                <label>New Password</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  minLength={4}
+                  required
+                  autoFocus
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn-ghost" onClick={() => setResetUser(null)}>Cancel</button>
+                <button type="submit" className="btn-primary" disabled={resetSubmitting}>
+                  {resetSubmitting ? 'Resetting...' : 'Reset Password'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

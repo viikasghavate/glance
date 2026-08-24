@@ -117,6 +117,23 @@ router.patch('/:id/role', requireRole('admin'), (req, res) => {
   res.json(updated);
 });
 
+router.patch('/:id/password', requireRole('admin'), (req, res) => {
+  const { id } = req.params;
+  const { password } = req.body;
+
+  if (!password || password.length < 4) {
+    return res.status(400).json({ error: 'Password must be at least 4 characters' });
+  }
+
+  const user = db.prepare('SELECT id, name FROM users WHERE id = ?').get(id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const hash = bcrypt.hashSync(password, 10);
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, id);
+  logActivity(req.user.id, 'user.password_reset', 'user', user.id, user.name);
+  res.json({ success: true });
+});
+
 router.delete('/:id', requireRole('admin'), (req, res) => {
   const { id } = req.params;
   const requesterId = req.user.id;
