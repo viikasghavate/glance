@@ -8,6 +8,55 @@ const router = Router();
 
 router.use(requireAuth);
 
+router.patch('/me', (req, res) => {
+  const { name, email } = req.body;
+  const id = req.user.id;
+
+  const user = db.prepare('SELECT id FROM users WHERE id = ?').get(id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  if (name !== undefined) {
+    if (!name.trim()) return res.status(400).json({ error: 'Name cannot be empty' });
+    db.prepare('UPDATE users SET name = ? WHERE id = ?').run(name.trim(), id);
+  }
+
+  if (email !== undefined) {
+    if (!email.trim()) return res.status(400).json({ error: 'Email cannot be empty' });
+    const existing = db.prepare('SELECT id FROM users WHERE email = ? AND id != ?').get(email.trim(), id);
+    if (existing) return res.status(409).json({ error: 'Email already in use' });
+    db.prepare('UPDATE users SET email = ? WHERE id = ?').run(email.trim(), id);
+  }
+
+  const updated = db.prepare('SELECT id, email, name, role, created_at, last_login_at FROM users WHERE id = ?').get(id);
+  logActivity(req.user.id, 'user.updated_self', 'user', updated.id, updated.name);
+  res.json(updated);
+});
+
+router.patch('/me/password', (req, res) => {
+  const { currentPassword, password } = req.body;
+  const id = req.user.id;
+
+  if (!currentPassword) {
+    return res.status(400).json({ error: 'Current password is required' });
+  }
+
+  if (!password || password.length < 4) {
+    return res.status(400).json({ error: 'Password must be at least 4 characters' });
+  }
+
+  const user = db.prepare('SELECT id, name, password_hash FROM users WHERE id = ?').get(id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  if (!bcrypt.compareSync(currentPassword, user.password_hash)) {
+    return res.status(400).json({ error: 'Current password is incorrect' });
+  }
+
+  const hash = bcrypt.hashSync(password, 10);
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, id);
+  logActivity(req.user.id, 'user.password_changed_self', 'user', user.id, user.name);
+  res.json({ success: true });
+});
+
 function isLastAdmin(targetUserId) {
   const target = db.prepare('SELECT role FROM users WHERE id = ?').get(targetUserId);
   if (!target || target.role !== 'admin') return false;

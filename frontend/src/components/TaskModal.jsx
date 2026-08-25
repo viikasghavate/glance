@@ -16,7 +16,7 @@ function getDescendantIds(taskId, allTasks) {
   return ids;
 }
 
-export default function TaskModal({ task, users, projectId, tasks, onClose, onSave }) {
+export default function TaskModal({ task, users, projectId, tasks, sprints, milestones, onClose, onSave }) {
   const [title, setTitle] = useState(task?.title || '');
   const [description, setDescription] = useState(task?.description || '');
   const [status, setStatus] = useState(task?.status || 'todo');
@@ -32,6 +32,8 @@ export default function TaskModal({ task, users, projectId, tasks, onClose, onSa
   const [parentId, setParentId] = useState(task?.parent_id || '');
   const [recurrence, setRecurrence] = useState(task?.recurrence || 'none');
   const [recurrenceEnd, setRecurrenceEnd] = useState(task?.recurrence_end || '');
+  const [sprintId, setSprintId] = useState(task?.sprint_id || '');
+  const [milestoneId, setMilestoneId] = useState(task?.milestone_id || '');
   const [submitting, setSubmitting] = useState(false);
 
   const eligibleParents = useMemo(() => {
@@ -65,7 +67,9 @@ export default function TaskModal({ task, users, projectId, tasks, onClose, onSa
         archived: archived ? 1 : 0,
         parent_id: parentId ? Number(parentId) : null,
         recurrence,
-        recurrence_end: recurrenceEnd || null
+        recurrence_end: recurrenceEnd || null,
+        sprint_id: sprintId ? Number(sprintId) : null,
+        milestone_id: milestoneId ? Number(milestoneId) : null
       });
     } catch (err) {
       console.error(err);
@@ -95,6 +99,26 @@ export default function TaskModal({ task, users, projectId, tasks, onClose, onSa
                 <option key={t.id} value={t.id}>{t.title}</option>
               ))}
             </select>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <div className="form-group">
+              <label htmlFor="tsprint">Sprint</label>
+              <select id="tsprint" value={sprintId} onChange={e => setSprintId(e.target.value)}>
+                <option value="">None</option>
+                {(sprints || []).map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label htmlFor="tmilestone">Milestone</label>
+              <select id="tmilestone" value={milestoneId} onChange={e => setMilestoneId(e.target.value)}>
+                <option value="">None</option>
+                {(milestones || []).map(m => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
             <div className="form-group">

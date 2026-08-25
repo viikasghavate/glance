@@ -17,6 +17,8 @@ import labelRoutes from './routes/labels.js';
 import timeEntryRoutes from './routes/time_entries.js';
 import attachmentRoutes from './routes/attachments.js';
 import notificationRoutes from './routes/notifications.js';
+import sprintRoutes from './routes/sprints.js';
+import milestoneRoutes from './routes/milestones.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -45,6 +47,8 @@ app.use('/api/labels', labelRoutes);
 app.use('/api/time', timeEntryRoutes);
 app.use('/api/attachments', attachmentRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api', sprintRoutes);
+app.use('/api', milestoneRoutes);
 
 const frontendDist = (() => {
   const containerPath = path.join(__dirname, 'frontend', 'dist');

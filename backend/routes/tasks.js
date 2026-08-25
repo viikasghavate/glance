@@ -68,10 +68,13 @@ function getTaskWithDeps(id) {
   const task = db.prepare(`
     SELECT t.*, u.name as assignee_name, u.email as assignee_email,
            r.name as reporter_name, r.email as reporter_email,
+           s.name as sprint_name, m.name as milestone_name,
            (SELECT COUNT(*) FROM tasks WHERE parent_id = t.id AND deleted_at IS NULL) as subtask_count
     FROM tasks t
     LEFT JOIN users u ON t.assignee_id = u.id
     LEFT JOIN users r ON t.reporter_id = r.id
+    LEFT JOIN sprints s ON t.sprint_id = s.id
+    LEFT JOIN milestones m ON t.milestone_id = m.id
     WHERE t.id = ? AND t.deleted_at IS NULL
   `).get(id);
   if (!task) return null;
@@ -169,10 +172,13 @@ router.get('/project/:projectId', (req, res) => {
   let tasks = db.prepare(`
     SELECT t.*, u.name as assignee_name, u.email as assignee_email,
            r.name as reporter_name, r.email as reporter_email,
+           s.name as sprint_name, m.name as milestone_name,
            (SELECT COUNT(*) FROM tasks WHERE parent_id = t.id AND deleted_at IS NULL) as subtask_count
     FROM tasks t
     LEFT JOIN users u ON t.assignee_id = u.id
     LEFT JOIN users r ON t.reporter_id = r.id
+    LEFT JOIN sprints s ON t.sprint_id = s.id
+    LEFT JOIN milestones m ON t.milestone_id = m.id
     WHERE t.project_id = ? AND t.deleted_at IS NULL
     ORDER BY t.position ASC, t.created_at DESC
   `).all(projectId);
@@ -198,13 +204,24 @@ router.post('/project/:projectId', requireRole('admin', 'member'), (req, res) =>
   const project = db.prepare('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL').get(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
-  const { title, description, status, priority, due_date, assignee_id, labels, start_date, estimated_hours, time_spent, reporter_id, archived, parent_id, recurrence, recurrence_end } = req.body;
+  const { title, description, status, priority, due_date, assignee_id, labels, start_date, estimated_hours, time_spent, reporter_id, archived, parent_id, recurrence, recurrence_end, sprint_id, milestone_id } = req.body;
   if (!title) return res.status(400).json({ error: 'title is required' });
 
   if (status != null && !VALID_STATUS.includes(status)) return res.status(400).json({ error: 'Invalid status' });
   if (priority != null && !VALID_PRIORITY.includes(priority)) return res.status(400).json({ error: 'Invalid priority' });
   if (!isValidDate(due_date)) return res.status(400).json({ error: 'Invalid due_date format (expected YYYY-MM-DD)' });
   if (!isValidDate(start_date)) return res.status(400).json({ error: 'Invalid start_date format (expected YYYY-MM-DD)' });
+
+  if (sprint_id != null) {
+    const sprint = db.prepare('SELECT * FROM sprints WHERE id = ?').get(sprint_id);
+    if (!sprint) return res.status(400).json({ error: 'Sprint not found' });
+    if (sprint.project_id !== Number(projectId)) return res.status(400).json({ error: 'Sprint must belong to the same project' });
+  }
+  if (milestone_id != null) {
+    const milestone = db.prepare('SELECT * FROM milestones WHERE id = ?').get(milestone_id);
+    if (!milestone) return res.status(400).json({ error: 'Milestone not found' });
+    if (milestone.project_id !== Number(projectId)) return res.status(400).json({ error: 'Milestone must belong to the same project' });
+  }
 
   if (parent_id != null) {
     const parent = db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(parent_id);
@@ -217,8 +234,8 @@ router.post('/project/:projectId', requireRole('admin', 'member'), (req, res) =>
   ).get(projectId, status || 'todo');
 
   const result = db.prepare(`
-    INSERT INTO tasks (project_id, title, description, status, priority, due_date, assignee_id, position, labels, start_date, estimated_hours, time_spent, reporter_id, archived, parent_id, recurrence, recurrence_end)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO tasks (project_id, title, description, status, priority, due_date, assignee_id, position, labels, start_date, estimated_hours, time_spent, reporter_id, archived, parent_id, recurrence, recurrence_end, sprint_id, milestone_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     projectId,
     title,
@@ -236,7 +253,9 @@ router.post('/project/:projectId', requireRole('admin', 'member'), (req, res) =>
     archived ? 1 : 0,
     parent_id || null,
     recurrence || 'none',
-    recurrence_end || null
+    recurrence_end || null,
+    sprint_id || null,
+    milestone_id || null
   );
 
   const task = getTaskWithDeps(result.lastInsertRowid);
@@ -280,7 +299,18 @@ router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
     }
   }
 
-  const fields = ['title', 'description', 'status', 'priority', 'due_date', 'assignee_id', 'position', 'labels', 'start_date', 'estimated_hours', 'time_spent', 'reporter_id', 'archived', 'parent_id', 'recurrence', 'recurrence_end'];
+  if (req.body.sprint_id !== undefined && req.body.sprint_id != null) {
+    const sprint = db.prepare('SELECT * FROM sprints WHERE id = ?').get(req.body.sprint_id);
+    if (!sprint) return res.status(400).json({ error: 'Sprint not found' });
+    if (sprint.project_id !== task.project_id) return res.status(400).json({ error: 'Sprint must belong to the same project' });
+  }
+  if (req.body.milestone_id !== undefined && req.body.milestone_id != null) {
+    const milestone = db.prepare('SELECT * FROM milestones WHERE id = ?').get(req.body.milestone_id);
+    if (!milestone) return res.status(400).json({ error: 'Milestone not found' });
+    if (milestone.project_id !== task.project_id) return res.status(400).json({ error: 'Milestone must belong to the same project' });
+  }
+
+  const fields = ['title', 'description', 'status', 'priority', 'due_date', 'assignee_id', 'position', 'labels', 'start_date', 'estimated_hours', 'time_spent', 'reporter_id', 'archived', 'parent_id', 'recurrence', 'recurrence_end', 'sprint_id', 'milestone_id'];
   const updates = [];
   const values = [];
 

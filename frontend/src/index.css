@@ -25,6 +25,44 @@
   --glow-danger: 0 0 10px rgba(255, 77, 109, 0.3);
 }
 
+[data-theme="light"] {
+  --bg: #f5f7fa;
+  --bg-card: rgba(255, 255, 255, 0.85);
+  --bg-card-solid: #ffffff;
+  --bg-hover: #eef1f6;
+  --bg-input: #ffffff;
+  --border: rgba(99, 102, 241, 0.25);
+  --text: #1a2233;
+  --text-muted: #5b6478;
+  --primary: #6366f1;
+  --primary-hover: #4f46e5;
+  --violet: #8b5cf6;
+  --cyan: #6366f1;
+  --danger: #e11d48;
+  --danger-hover: #be123c;
+  --success: #059669;
+  --warning: #d97706;
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  --glow-cyan: 0 0 12px rgba(99, 102, 241, 0.25), 0 0 24px rgba(99, 102, 241, 0.1);
+  --glow-violet: 0 0 12px rgba(139, 92, 246, 0.25), 0 0 24px rgba(139, 92, 246, 0.1);
+  --glow-success: 0 0 10px rgba(5, 150, 105, 0.2);
+  --glow-warning: 0 0 10px rgba(217, 119, 6, 0.2);
+  --glow-danger: 0 0 10px rgba(225, 29, 72, 0.2);
+}
+
+[data-theme="light"] body::before {
+  background:
+    linear-gradient(rgba(99, 102, 241, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99, 102, 241, 0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+[data-theme="light"] body::after {
+  background: radial-gradient(ellipse at 20% 50%, rgba(99, 102, 241, 0.05) 0%, transparent 50%),
+              radial-gradient(ellipse at 80% 20%, rgba(139, 92, 246, 0.04) 0%, transparent 50%),
+              radial-gradient(ellipse at 50% 80%, rgba(99, 102, 241, 0.03) 0%, transparent 50%);
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;

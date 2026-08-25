@@ -55,12 +55,16 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
+  const updateUser = useCallback((updates) => {
+    setUser(prev => prev ? { ...prev, ...updates } : prev);
+  }, []);
+
   const hasRole = useCallback((...roles) => {
     return user && roles.includes(user.role);
   }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, apiFetch, hasRole }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, updateUser, apiFetch, hasRole }}>
       {children}
     </AuthContext.Provider>
   );

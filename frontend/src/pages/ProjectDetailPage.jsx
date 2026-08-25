@@ -7,6 +7,8 @@ import TaskList from '../components/TaskList';
 import TimelineView from '../components/TimelineView';
 import TaskModal from '../components/TaskModal';
 import TaskDetailModal from '../components/TaskDetailModal';
+import SprintSection from '../components/SprintSection';
+import MilestoneSection from '../components/MilestoneSection';
 import './ProjectDetailPage.css';
 
 const statusLabels = {
@@ -24,6 +26,8 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [users, setUsers] = useState([]);
+  const [sprints, setSprints] = useState([]);
+  const [milestones, setMilestones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
@@ -31,16 +35,20 @@ export default function ProjectDetailPage() {
 
   const fetchData = async () => {
     try {
-      const [projData, taskData, userData] = await Promise.all([
+      const [projData, taskData, userData, sprintData, milestoneData] = await Promise.all([
         apiFetch(`/projects/${id}`).catch(() => null),
         apiFetch(`/tasks/project/${id}`),
-        apiFetch('/users')
+        apiFetch('/users'),
+        apiFetch(`/projects/${id}/sprints`).catch(() => []),
+        apiFetch(`/projects/${id}/milestones`).catch(() => [])
       ]);
       if (!projData) { navigate('/'); return; }
       setProject(projData);
       setBreadcrumb(`Glance / ${projData.name}`);
       setTasks(taskData);
       setUsers(userData);
+      setSprints(sprintData);
+      setMilestones(milestoneData);
     } catch (err) {
       console.error(err);
     } finally {
@@ -152,12 +160,31 @@ export default function ProjectDetailPage() {
         />
       )}
 
+      <div className="sprint-milestone-grid">
+        <SprintSection
+          projectId={id}
+          sprints={sprints}
+          onRefresh={fetchData}
+          apiFetch={apiFetch}
+          readOnly={hasRole('viewer')}
+        />
+        <MilestoneSection
+          projectId={id}
+          milestones={milestones}
+          onRefresh={fetchData}
+          apiFetch={apiFetch}
+          readOnly={hasRole('viewer')}
+        />
+      </div>
+
       {showTaskModal && (
         <TaskModal
           task={editingTask}
           users={users}
           projectId={id}
           tasks={tasks}
+          sprints={sprints}
+          milestones={milestones}
           onClose={() => { setShowTaskModal(false); setEditingTask(null); }}
           onSave={handleTaskSave}
         />

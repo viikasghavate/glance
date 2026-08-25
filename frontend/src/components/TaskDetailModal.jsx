@@ -200,6 +200,8 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
           {task.recurrence && task.recurrence !== 'none' && (
             <span className="badge badge-medium">↻ {task.recurrence}</span>
           )}
+          {task.sprint_name && <span className="badge badge-todo">Sprint: {task.sprint_name}</span>}
+          {task.milestone_name && <span className="badge badge-in_progress">Milestone: {task.milestone_name}</span>}
           {task.assignee_name && <span className="meta-item">Assigned to: {task.assignee_name}</span>}
           {task.reporter_name && <span className="meta-item">Reporter: {task.reporter_name}</span>}
           {task.due_date && <span className="meta-item">Due: {task.due_date}</span>}

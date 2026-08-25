@@ -77,3 +77,79 @@
   color: #fff;
   box-shadow: var(--glow-cyan);
 }
+
+.sprint-milestone-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.section-head .panel-title {
+  margin-bottom: 0;
+}
+
+.sprint-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sprint-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  background: rgba(20, 26, 40, 0.3);
+}
+
+.sprint-item-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.sprint-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text);
+}
+
+.sprint-count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.sprint-goal {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin-top: 0.375rem;
+}
+
+.sprint-dates {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.375rem;
+}
+
+.sprint-actions {
+  display: flex;
+  gap: 0.375rem;
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 900px) {
+  .sprint-milestone-grid {
+    grid-template-columns: 1fr;
+  }
+}

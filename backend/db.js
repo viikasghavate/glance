@@ -67,13 +67,42 @@ db.exec(`
     parent_id INTEGER,
     recurrence TEXT NOT NULL DEFAULT 'none',
     recurrence_end TEXT,
+    sprint_id INTEGER,
+    milestone_id INTEGER,
     deleted_at TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
     FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE SET NULL,
     FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE SET NULL,
-    FOREIGN KEY (parent_id) REFERENCES tasks(id) ON DELETE SET NULL
+    FOREIGN KEY (parent_id) REFERENCES tasks(id) ON DELETE SET NULL,
+    FOREIGN KEY (sprint_id) REFERENCES sprints(id) ON DELETE SET NULL,
+    FOREIGN KEY (milestone_id) REFERENCES milestones(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS sprints (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    goal TEXT DEFAULT '',
+    start_date TEXT,
+    end_date TEXT,
+    status TEXT NOT NULL DEFAULT 'planned',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS milestones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    due_date TEXT,
+    status TEXT NOT NULL DEFAULT 'open',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
   );
 
   CREATE TABLE IF NOT EXISTS comments (
@@ -215,6 +244,10 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_attachments_task ON attachments(task_id);
   CREATE INDEX IF NOT EXISTS idx_task_watchers_user ON task_watchers(user_id);
   CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
+  CREATE INDEX IF NOT EXISTS idx_sprints_project_id ON sprints(project_id);
+  CREATE INDEX IF NOT EXISTS idx_milestones_project_id ON milestones(project_id);
+  CREATE INDEX IF NOT EXISTS idx_tasks_sprint_id ON tasks(sprint_id);
+  CREATE INDEX IF NOT EXISTS idx_tasks_milestone_id ON tasks(milestone_id);
 `);
 
 function hasColumn(table, column) {
@@ -443,6 +476,14 @@ const migrations = [
   {
     name: 'backfill_tags_labels',
     up: () => { backfillTagsAndLabels(); }
+  },
+  {
+    name: 'tasks_sprint_id',
+    up: () => { if (!hasColumn('tasks', 'sprint_id')) db.exec('ALTER TABLE tasks ADD COLUMN sprint_id INTEGER REFERENCES sprints(id) ON DELETE SET NULL'); }
+  },
+  {
+    name: 'tasks_milestone_id',
+    up: () => { if (!hasColumn('tasks', 'milestone_id')) db.exec('ALTER TABLE tasks ADD COLUMN milestone_id INTEGER REFERENCES milestones(id) ON DELETE SET NULL'); }
   }
 ];
 

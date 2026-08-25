@@ -157,6 +157,8 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
                   {task.labels ? task.labels.split(',').map((l, i) => (
                     <span key={i} className="label-badge">{l.trim()}</span>
                   )) : '-'}
+                  {task.sprint_name && <span className="badge badge-todo">{task.sprint_name}</span>}
+                  {task.milestone_name && <span className="badge badge-in_progress">{task.milestone_name}</span>}
                 </div>
                 <div className="task-table-cell">
                   <select

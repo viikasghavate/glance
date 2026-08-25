@@ -141,6 +141,12 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
                   )}
                   <div className="kanban-card-meta">
                     <span className={priorityClass(task.priority)}>{task.priority}</span>
+                    {task.sprint_name && (
+                      <span className="badge badge-todo" title={`Sprint: ${task.sprint_name}`}>{task.sprint_name}</span>
+                    )}
+                    {task.milestone_name && (
+                      <span className="badge badge-in_progress" title={`Milestone: ${task.milestone_name}`}>{task.milestone_name}</span>
+                    )}
                     {task.assignee_name && (
                       <span className="assignee">{task.assignee_name}</span>
                     )}
