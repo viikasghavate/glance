@@ -246,8 +246,6 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
   CREATE INDEX IF NOT EXISTS idx_sprints_project_id ON sprints(project_id);
   CREATE INDEX IF NOT EXISTS idx_milestones_project_id ON milestones(project_id);
-  CREATE INDEX IF NOT EXISTS idx_tasks_sprint_id ON tasks(sprint_id);
-  CREATE INDEX IF NOT EXISTS idx_tasks_milestone_id ON tasks(milestone_id);
 `);
 
 function hasColumn(table, column) {
@@ -479,11 +477,17 @@ const migrations = [
   },
   {
     name: 'tasks_sprint_id',
-    up: () => { if (!hasColumn('tasks', 'sprint_id')) db.exec('ALTER TABLE tasks ADD COLUMN sprint_id INTEGER REFERENCES sprints(id) ON DELETE SET NULL'); }
+    up: () => {
+      if (!hasColumn('tasks', 'sprint_id')) db.exec('ALTER TABLE tasks ADD COLUMN sprint_id INTEGER REFERENCES sprints(id) ON DELETE SET NULL');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_tasks_sprint_id ON tasks(sprint_id)');
+    }
   },
   {
     name: 'tasks_milestone_id',
-    up: () => { if (!hasColumn('tasks', 'milestone_id')) db.exec('ALTER TABLE tasks ADD COLUMN milestone_id INTEGER REFERENCES milestones(id) ON DELETE SET NULL'); }
+    up: () => {
+      if (!hasColumn('tasks', 'milestone_id')) db.exec('ALTER TABLE tasks ADD COLUMN milestone_id INTEGER REFERENCES milestones(id) ON DELETE SET NULL');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_tasks_milestone_id ON tasks(milestone_id)');
+    }
   }
 ];
 
