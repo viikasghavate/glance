@@ -136,6 +136,15 @@ export default function TimelineView({ tasks, users, onTaskClick }) {
     }
   }, [timelineStart, totalDays, dayWidth]);
 
+  // Center the current date in the viewport on mount.
+  useEffect(() => {
+    if (!timelineRef.current || todayLeft === null) return;
+    const container = timelineRef.current;
+    const todayX = leftWidth + todayLeft;
+    const target = todayX - container.clientWidth / 2;
+    container.scrollLeft = Math.max(0, target);
+  }, [todayLeft]);
+
   const monthColumns = useMemo(() => {
     if (!timelineStart) return [];
     const cols = [];
