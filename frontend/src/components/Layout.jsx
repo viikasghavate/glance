@@ -82,6 +82,12 @@ export default function Layout() {
   const location = useLocation();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [railCollapsed, setRailCollapsed] = useState(false);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -334,6 +340,14 @@ export default function Layout() {
           </div>
 
           <div className="top-bar-right">
+            <div className="top-bar-clock">
+              <span className="top-bar-clock-date">
+                {now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+              </span>
+              <span className="top-bar-clock-time">
+                {now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </span>
+            </div>
             <div className="user-menu">
               <button
                 className="user-avatar"
