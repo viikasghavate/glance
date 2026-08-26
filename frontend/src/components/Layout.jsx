@@ -3,6 +3,7 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useUI } from '../context/UIContext';
 import ProjectModal from './ProjectModal';
+import AIChatPanel from './AIChatPanel';
 import './Layout.css';
 
 const IconHome = () => (
@@ -367,6 +368,8 @@ export default function Layout() {
           onSave={handleSaveProject}
         />
       )}
+
+      <AIChatPanel />
     </div>
   );
 }
