@@ -79,7 +79,8 @@
   color: var(--cyan);
 }
 
-.ai-panel-close {
+.ai-panel-close,
+.ai-panel-new {
   background: transparent;
   color: var(--text-muted);
   padding: 0.25rem;
@@ -89,12 +90,14 @@
   justify-content: center;
 }
 
-.ai-panel-close:hover {
+.ai-panel-close:hover,
+.ai-panel-new:hover {
   background: var(--bg-hover);
   color: var(--text);
 }
 
-.ai-panel-close svg {
+.ai-panel-close svg,
+.ai-panel-new svg {
   width: 16px;
   height: 16px;
 }

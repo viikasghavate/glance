@@ -23,6 +23,15 @@ const IconClose = () => (
   </svg>
 );
 
+const IconNewChat = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="12" y1="5" x2="12" y2="19" />
+    <line x1="5" y1="12" x2="19" y2="12" />
+  </svg>
+);
+
+const SESSION_KEY = 'glance_ai_session';
+
 export default function AIChatPanel() {
   const { apiFetch } = useAuth();
   const [open, setOpen] = useState(false);
@@ -30,6 +39,7 @@ export default function AIChatPanel() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [sessionId, setSessionId] = useState(() => localStorage.getItem(SESSION_KEY));
   const listRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -42,6 +52,33 @@ export default function AIChatPanel() {
   useEffect(() => {
     if (open) inputRef.current?.focus();
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !sessionId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await apiFetch(`/ai/sessions/${sessionId}/messages`);
+        if (!cancelled) {
+          setMessages(data.messages || []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setSessionId(null);
+          localStorage.removeItem(SESSION_KEY);
+          setMessages([]);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open, sessionId]);
+
+  const handleNewChat = () => {
+    setSessionId(null);
+    localStorage.removeItem(SESSION_KEY);
+    setMessages([]);
+    setError(null);
+  };
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -56,8 +93,12 @@ export default function AIChatPanel() {
     try {
       const data = await apiFetch('/ai/chat', {
         method: 'POST',
-        body: JSON.stringify({ message })
+        body: JSON.stringify({ message, session_id: sessionId })
       });
+      if (data.session_id) {
+        setSessionId(String(data.session_id));
+        localStorage.setItem(SESSION_KEY, String(data.session_id));
+      }
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
     } catch (err) {
       setError(err.message || 'Something went wrong. Please try again.');
@@ -82,6 +123,9 @@ export default function AIChatPanel() {
           <span className="ai-panel-title">
             <IconSparkle /> AI Assistant
           </span>
+          <button className="ai-panel-new" onClick={handleNewChat} title="New chat" aria-label="New chat">
+            <IconNewChat />
+          </button>
           <button className="ai-panel-close" onClick={() => setOpen(false)} aria-label="Close">
             <IconClose />
           </button>

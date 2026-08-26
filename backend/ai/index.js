@@ -3,11 +3,35 @@ import { getToolDefinitions, executeTool } from './tools.js';
 import { SYSTEM_PROMPT } from './system.js';
 
 const MAX_ITERATIONS = 6;
+const MAX_CONTEXT_MESSAGES = 20;
+const MAX_CONTEXT_CHARS = 40000;
 
-export async function runAssistant(user, userMessage) {
+function boundHistory(history) {
+  let messages = history
+    .filter(m => m && (m.role === 'user' || m.role === 'assistant'))
+    .map(m => ({ role: m.role, content: m.content || '' }));
+
+  if (messages.length > MAX_CONTEXT_MESSAGES) {
+    messages = messages.slice(messages.length - MAX_CONTEXT_MESSAGES);
+  }
+
+  let total = 0;
+  const kept = [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    total += messages[i].content.length;
+    if (total > MAX_CONTEXT_CHARS && kept.length > 0) break;
+    kept.unshift(messages[i]);
+  }
+  return kept;
+}
+
+export async function runAssistant(user, history) {
+  const prior = Array.isArray(history) ? history : [];
+  const bounded = boundHistory(prior);
+
   const messages = [
     { role: 'system', content: SYSTEM_PROMPT },
-    { role: 'user', content: userMessage }
+    ...bounded
   ];
 
   const toolDefs = getToolDefinitions();
