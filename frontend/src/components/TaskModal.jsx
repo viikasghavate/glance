@@ -25,6 +25,8 @@ export default function TaskModal({ task, users, projectId, tasks, sprints, mile
   const [assigneeId, setAssigneeId] = useState(task?.assignee_id || '');
   const [labels, setLabels] = useState(task?.labels || '');
   const [startDate, setStartDate] = useState(task?.start_date || '');
+  const [startTime, setStartTime] = useState(task?.start_time || '');
+  const [endTime, setEndTime] = useState(task?.end_time || '');
   const [estimatedHours, setEstimatedHours] = useState(task?.estimated_hours ?? '');
   const [timeSpent, setTimeSpent] = useState(task?.time_spent ?? 0);
   const [reporterId, setReporterId] = useState(task?.reporter_id || '');
@@ -61,6 +63,8 @@ export default function TaskModal({ task, users, projectId, tasks, sprints, mile
         assignee_id: assigneeId ? Number(assigneeId) : null,
         labels: labels.trim(),
         start_date: startDate || null,
+        start_time: startTime || null,
+        end_time: endTime || null,
         estimated_hours: estimatedHours !== '' ? Number(estimatedHours) : null,
         time_spent: Number(timeSpent),
         reporter_id: reporterId ? Number(reporterId) : null,
@@ -165,6 +169,16 @@ export default function TaskModal({ task, users, projectId, tasks, sprints, mile
             <div className="form-group">
               <label htmlFor="testhours">Estimated Hours</label>
               <input id="testhours" type="number" step="0.5" min="0" value={estimatedHours} onChange={e => setEstimatedHours(e.target.value)} />
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <div className="form-group">
+              <label htmlFor="tstarttime">Start Time</label>
+              <input id="tstarttime" type="time" value={startTime} onChange={e => setStartTime(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label htmlFor="tendtime">End Time</label>
+              <input id="tendtime" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} />
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>

@@ -551,6 +551,14 @@ const migrations = [
     up: () => {
       if (!hasColumn('projects', 'portfolio_id')) db.exec('ALTER TABLE projects ADD COLUMN portfolio_id INTEGER REFERENCES portfolios(id) ON DELETE SET NULL');
     }
+  },
+  {
+    name: 'tasks_start_time',
+    up: () => { if (!hasColumn('tasks', 'start_time')) db.exec('ALTER TABLE tasks ADD COLUMN start_time TEXT'); }
+  },
+  {
+    name: 'tasks_end_time',
+    up: () => { if (!hasColumn('tasks', 'end_time')) db.exec('ALTER TABLE tasks ADD COLUMN end_time TEXT'); }
   }
 ];
 

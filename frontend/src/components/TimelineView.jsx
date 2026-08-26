@@ -288,18 +288,21 @@ export default function TimelineView({ tasks, users, onTaskClick }) {
                             )}
                           </span>
                         </div>
-                        <div className="timeline-task-dates">
-                          <span>{formatDateShort(task.start_date)}</span>
-                          <span className="timeline-date-sep">–</span>
-                          <span>{formatDateShort(task.due_date)}</span>
-                        </div>
+                          <div className="timeline-task-dates">
+                            <span>{formatDateShort(task.start_date)}</span>
+                            <span className="timeline-date-sep">–</span>
+                            <span>{formatDateShort(task.due_date)}</span>
+                            {(task.start_time || task.end_time) && (
+                              <span className="timeline-task-times">{task.start_time || '—'}–{task.end_time || '—'}</span>
+                            )}
+                          </div>
                       </div>
                       <div className="timeline-row-right">
                         {barStyle && (
                           <div
                             className="timeline-bar"
                             style={barStyle}
-                            title={`${task.title}: ${formatDate(task.start_date)} – ${formatDate(task.due_date)}`}
+                            title={`${task.title}: ${formatDate(task.start_date)} – ${formatDate(task.due_date)}${(task.start_time || task.end_time) ? ` (${task.start_time || '—'}–${task.end_time || '—'})` : ''}`}
                           >
                             <span className="timeline-bar-label">{task.title}</span>
                           </div>

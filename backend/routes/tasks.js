@@ -18,6 +18,11 @@ function isValidDate(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value));
 }
 
+function isValidTime(value) {
+  if (value == null || value === '') return true;
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(value));
+}
+
 function getWatchers(taskId) {
   return db.prepare(`
     SELECT u.id, u.name, u.email
@@ -204,13 +209,15 @@ router.post('/project/:projectId', requireRole('admin', 'member'), (req, res) =>
   const project = db.prepare('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL').get(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
-  const { title, description, status, priority, due_date, assignee_id, labels, start_date, estimated_hours, time_spent, reporter_id, archived, parent_id, recurrence, recurrence_end, sprint_id, milestone_id } = req.body;
+  const { title, description, status, priority, due_date, assignee_id, labels, start_date, estimated_hours, time_spent, reporter_id, archived, parent_id, recurrence, recurrence_end, sprint_id, milestone_id, start_time, end_time } = req.body;
   if (!title) return res.status(400).json({ error: 'title is required' });
 
   if (status != null && !VALID_STATUS.includes(status)) return res.status(400).json({ error: 'Invalid status' });
   if (priority != null && !VALID_PRIORITY.includes(priority)) return res.status(400).json({ error: 'Invalid priority' });
   if (!isValidDate(due_date)) return res.status(400).json({ error: 'Invalid due_date format (expected YYYY-MM-DD)' });
   if (!isValidDate(start_date)) return res.status(400).json({ error: 'Invalid start_date format (expected YYYY-MM-DD)' });
+  if (!isValidTime(start_time)) return res.status(400).json({ error: 'Invalid start_time format (expected HH:MM)' });
+  if (!isValidTime(end_time)) return res.status(400).json({ error: 'Invalid end_time format (expected HH:MM)' });
 
   if (sprint_id != null) {
     const sprint = db.prepare('SELECT * FROM sprints WHERE id = ?').get(sprint_id);
@@ -234,8 +241,8 @@ router.post('/project/:projectId', requireRole('admin', 'member'), (req, res) =>
   ).get(projectId, status || 'todo');
 
   const result = db.prepare(`
-    INSERT INTO tasks (project_id, title, description, status, priority, due_date, assignee_id, position, labels, start_date, estimated_hours, time_spent, reporter_id, archived, parent_id, recurrence, recurrence_end, sprint_id, milestone_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO tasks (project_id, title, description, status, priority, due_date, assignee_id, position, labels, start_date, estimated_hours, time_spent, reporter_id, archived, parent_id, recurrence, recurrence_end, sprint_id, milestone_id, start_time, end_time)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     projectId,
     title,
@@ -255,7 +262,9 @@ router.post('/project/:projectId', requireRole('admin', 'member'), (req, res) =>
     recurrence || 'none',
     recurrence_end || null,
     sprint_id || null,
-    milestone_id || null
+    milestone_id || null,
+    start_time || null,
+    end_time || null
   );
 
   const task = getTaskWithDeps(result.lastInsertRowid);
@@ -282,6 +291,8 @@ router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
   if (req.body.priority !== undefined && !VALID_PRIORITY.includes(req.body.priority)) return res.status(400).json({ error: 'Invalid priority' });
   if (req.body.due_date !== undefined && !isValidDate(req.body.due_date)) return res.status(400).json({ error: 'Invalid due_date format (expected YYYY-MM-DD)' });
   if (req.body.start_date !== undefined && !isValidDate(req.body.start_date)) return res.status(400).json({ error: 'Invalid start_date format (expected YYYY-MM-DD)' });
+  if (req.body.start_time !== undefined && !isValidTime(req.body.start_time)) return res.status(400).json({ error: 'Invalid start_time format (expected HH:MM)' });
+  if (req.body.end_time !== undefined && !isValidTime(req.body.end_time)) return res.status(400).json({ error: 'Invalid end_time format (expected HH:MM)' });
 
   if (req.body.parent_id !== undefined) {
     const newParentId = req.body.parent_id;
@@ -310,7 +321,7 @@ router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
     if (milestone.project_id !== task.project_id) return res.status(400).json({ error: 'Milestone must belong to the same project' });
   }
 
-  const fields = ['title', 'description', 'status', 'priority', 'due_date', 'assignee_id', 'position', 'labels', 'start_date', 'estimated_hours', 'time_spent', 'reporter_id', 'archived', 'parent_id', 'recurrence', 'recurrence_end', 'sprint_id', 'milestone_id'];
+  const fields = ['title', 'description', 'status', 'priority', 'due_date', 'assignee_id', 'position', 'labels', 'start_date', 'estimated_hours', 'time_spent', 'reporter_id', 'archived', 'parent_id', 'recurrence', 'recurrence_end', 'sprint_id', 'milestone_id', 'start_time', 'end_time'];
   const updates = [];
   const values = [];
 

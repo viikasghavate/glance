@@ -206,6 +206,7 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
           {task.reporter_name && <span className="meta-item">Reporter: {task.reporter_name}</span>}
           {task.due_date && <span className="meta-item">Due: {task.due_date}</span>}
           {task.start_date && <span className="meta-item">Start: {task.start_date}</span>}
+          {(task.start_time || task.end_time) && <span className="meta-item">Time: {task.start_time || '—'} – {task.end_time || '—'}</span>}
           {task.estimated_hours != null && <span className="meta-item">Est: {task.estimated_hours}h</span>}
           {task.time_spent != null && task.time_spent > 0 && <span className="meta-item">Spent: {task.time_spent}h</span>}
         </div>

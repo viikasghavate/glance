@@ -234,6 +234,10 @@
   color: var(--text-muted);
 }
 
+.timeline-task-times {
+  color: var(--cyan);
+}
+
 .timeline-bar {
   position: absolute;
   top: 6px;
