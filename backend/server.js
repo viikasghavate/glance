@@ -20,6 +20,8 @@ import notificationRoutes from './routes/notifications.js';
 import sprintRoutes from './routes/sprints.js';
 import milestoneRoutes from './routes/milestones.js';
 import aiRoutes from './routes/ai.js';
+import portfolioRoutes from './routes/portfolios.js';
+import programRoutes from './routes/programs.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -51,6 +53,8 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api', sprintRoutes);
 app.use('/api', milestoneRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/portfolios', portfolioRoutes);
+app.use('/api/programs', programRoutes);
 
 const frontendDist = (() => {
   const containerPath = path.join(__dirname, 'frontend', 'dist');

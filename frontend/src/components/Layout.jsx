@@ -70,13 +70,77 @@ const IconUsers = () => (
   </svg>
 );
 
+const IconPortfolios = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="7" height="7" rx="1" />
+    <rect x="14" y="3" width="7" height="7" rx="1" />
+    <rect x="3" y="14" width="7" height="7" rx="1" />
+    <rect x="14" y="14" width="7" height="7" rx="1" />
+  </svg>
+);
+
+function ProjectNavGroups({ projects, portfolios, programs, currentProjectId }) {
+  const ungrouped = [];
+
+  for (const p of projects) {
+    if (!p.program_id && !p.portfolio_id) ungrouped.push(p);
+  }
+
+  const renderProject = (p) => (    <Link
+      key={p.id}
+      to={`/project/${p.id}`}
+      className={`project-nav-item ${currentProjectId === String(p.id) ? 'active' : ''}`}
+    >
+      <span className="project-nav-dot" style={{ background: p.color }} />
+      <span className="project-nav-name">{p.name}</span>
+    </Link>
+  );
+
+  return (
+    <>
+      {portfolios.map(pf => {
+        const pfPrograms = programs.filter(pr => pr.portfolio_id === pf.id);
+        const directProjects = projects.filter(p => p.portfolio_id === pf.id && !p.program_id);
+        const programIds = new Set(pfPrograms.map(pr => pr.id));
+        const viaProgramProjects = projects.filter(p => programIds.has(p.program_id));
+        const hasContent = pfPrograms.length > 0 || directProjects.length > 0 || viaProgramProjects.length > 0;
+        if (!hasContent) return null;
+
+        return (
+          <div key={pf.id} className="nav-group">
+            <div className="nav-group-label" style={{ color: pf.color }}>
+              <span className="nav-group-dot" style={{ background: pf.color }} />
+              {pf.name}
+            </div>
+            {pfPrograms.map(pr => (
+              <div key={pr.id} className="nav-subgroup">
+                <div className="nav-subgroup-label">{pr.name}</div>
+                {projects.filter(p => p.program_id === pr.id).map(renderProject)}
+              </div>
+            ))}
+            {directProjects.map(renderProject)}
+          </div>
+        );
+      })}
+
+      {ungrouped.length > 0 && (
+        <div className="nav-group">
+          <div className="nav-group-label nav-group-label-muted">Projects</div>
+          {ungrouped.map(renderProject)}
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function Layout() {
   const { user, logout, apiFetch, hasRole } = useAuth();
   const {
     projects, projectsLoading, refreshProjects,
     showProjectModal, openNewProjectModal, closeProjectModal,
     editingProject, setEditingProject,
-    view, setView, breadcrumb, users
+    view, setView, breadcrumb, users,
+    portfolios, programs
   } = useUI();
   const navigate = useNavigate();
   const location = useLocation();
@@ -185,6 +249,9 @@ export default function Layout() {
           <Link to="/projects" className={`icon-rail-btn ${location.pathname === '/projects' ? 'active' : ''}`} title="Projects">
             <IconProjects />
           </Link>
+          <Link to="/ports" className={`icon-rail-btn ${location.pathname === '/ports' ? 'active' : ''}`} title="Portfolios">
+            <IconPortfolios />
+          </Link>
           {hasRole('admin') && (
             <Link to="/users" className={`icon-rail-btn ${location.pathname === '/users' ? 'active' : ''}`} title="Members">
               <IconUsers />
@@ -241,16 +308,12 @@ export default function Layout() {
               {searchQuery ? 'No matching projects' : 'No projects yet'}
             </div>
           ) : (
-            filteredProjects.map(p => (
-              <Link
-                key={p.id}
-                to={`/project/${p.id}`}
-                className={`project-nav-item ${currentProjectId === String(p.id) ? 'active' : ''}`}
-              >
-                <span className="project-nav-dot" style={{ background: p.color }} />
-                <span className="project-nav-name">{p.name}</span>
-              </Link>
-            ))
+            <ProjectNavGroups
+              projects={filteredProjects}
+              portfolios={portfolios}
+              programs={programs}
+              currentProjectId={currentProjectId}
+            />
           )}
         </div>
 
@@ -378,6 +441,8 @@ export default function Layout() {
         <ProjectModal
           project={editingProject}
           users={users}
+          portfolios={portfolios}
+          programs={programs}
           onClose={closeProjectModal}
           onSave={handleSaveProject}
         />

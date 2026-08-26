@@ -12,6 +12,8 @@ export function UIProvider({ children }) {
   const [projects, setProjects] = useState([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
   const [users, setUsers] = useState([]);
+  const [portfolios, setPortfolios] = useState([]);
+  const [programs, setPrograms] = useState([]);
 
   const refreshProjects = useCallback(async () => {
     try {
@@ -21,6 +23,19 @@ export function UIProvider({ children }) {
       console.error(err);
     } finally {
       setProjectsLoading(false);
+    }
+  }, [apiFetch]);
+
+  const refreshPortfolios = useCallback(async () => {
+    try {
+      const [portfoliosData, programsData] = await Promise.all([
+        apiFetch('/portfolios'),
+        apiFetch('/programs')
+      ]);
+      setPortfolios(portfoliosData);
+      setPrograms(programsData);
+    } catch (err) {
+      console.error(err);
     }
   }, [apiFetch]);
 
@@ -34,6 +49,7 @@ export function UIProvider({ children }) {
   }, [apiFetch]);
 
   useEffect(() => { refreshProjects(); }, [refreshProjects]);
+  useEffect(() => { refreshPortfolios(); }, [refreshPortfolios]);
   useEffect(() => { refreshUsers(); }, [refreshUsers]);
 
   const openNewProjectModal = useCallback(() => {
@@ -59,6 +75,7 @@ export function UIProvider({ children }) {
       breadcrumb, setBreadcrumb,
       projects, projectsLoading, refreshProjects,
       users, refreshUsers,
+      portfolios, programs, refreshPortfolios,
       openNewProjectModal, openEditProjectModal, closeProjectModal
     }}>
       {children}

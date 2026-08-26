@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 const COLORS = ['#6366f1', '#ef4444', '#22c55e', '#f59e0b', '#3b82f6', '#ec4899', '#8b5cf6', '#14b8a6'];
 
-export default function ProjectModal({ project, users, onClose, onSave }) {
+export default function ProjectModal({ project, users, portfolios, programs, onClose, onSave }) {
   const [name, setName] = useState(project?.name || '');
   const [description, setDescription] = useState(project?.description || '');
   const [color, setColor] = useState(project?.color || '#6366f1');
@@ -13,6 +13,8 @@ export default function ProjectModal({ project, users, onClose, onSave }) {
   const [priority, setPriority] = useState(project?.priority || 'medium');
   const [progress, setProgress] = useState(project?.progress ?? 0);
   const [tags, setTags] = useState(project?.tags || '');
+  const [portfolioId, setPortfolioId] = useState(project?.portfolio_id || '');
+  const [programId, setProgramId] = useState(project?.program_id || '');
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -30,7 +32,9 @@ export default function ProjectModal({ project, users, onClose, onSave }) {
         owner_id: ownerId ? Number(ownerId) : null,
         priority,
         progress: Number(progress),
-        tags: tags.trim()
+        tags: tags.trim(),
+        portfolio_id: portfolioId ? Number(portfolioId) : null,
+        program_id: programId ? Number(programId) : null
       });
     } catch (err) {
       console.error(err);
@@ -55,6 +59,33 @@ export default function ProjectModal({ project, users, onClose, onSave }) {
           <div className="form-group">
             <label htmlFor="ptags">Tags</label>
             <input id="ptags" type="text" value={tags} onChange={e => setTags(e.target.value)} placeholder="comma, separated, tags" />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+            <div className="form-group">
+              <label htmlFor="pportfolio">Portfolio</label>
+              <select id="pportfolio" value={portfolioId} onChange={e => setPortfolioId(e.target.value)}>
+                <option value="">None</option>
+                {portfolios && portfolios.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label htmlFor="pprogram">Program</label>
+              <select id="pprogram" value={programId} onChange={e => setProgramId(e.target.value)}>
+                <option value="">None</option>
+                {portfolios && portfolios.map(p => (
+                  <optgroup key={p.id} label={p.name}>
+                    {(programs || []).filter(pr => pr.portfolio_id === p.id).map(pr => (
+                      <option key={pr.id} value={pr.id}>{pr.name}</option>
+                    ))}
+                  </optgroup>
+                ))}
+                {(programs || []).filter(pr => !pr.portfolio_id).map(pr => (
+                  <option key={pr.id} value={pr.id}>{pr.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="form-group">
             <label>Color</label>

@@ -66,8 +66,20 @@ router.get('/', (req, res) => {
   res.json(result);
 });
 
+function validateProgramPortfolio(program_id, portfolio_id) {
+  if (program_id != null) {
+    const program = db.prepare('SELECT id FROM programs WHERE id = ? AND deleted_at IS NULL').get(program_id);
+    if (!program) return 'Program not found';
+  }
+  if (portfolio_id != null) {
+    const portfolio = db.prepare('SELECT id FROM portfolios WHERE id = ? AND deleted_at IS NULL').get(portfolio_id);
+    if (!portfolio) return 'Portfolio not found';
+  }
+  return null;
+}
+
 router.post('/', requireRole('admin', 'member'), (req, res) => {
-  const { name, description, color, status, start_date, due_date, owner_id, priority, progress, tags } = req.body;
+  const { name, description, color, status, start_date, due_date, owner_id, priority, progress, tags, program_id, portfolio_id } = req.body;
   if (!name) return res.status(400).json({ error: 'name is required' });
 
   if (progress != null && (Number.isNaN(Number(progress)) || Number(progress) < 0 || Number(progress) > 100)) {
@@ -76,9 +88,12 @@ router.post('/', requireRole('admin', 'member'), (req, res) => {
   if (!isValidDate(start_date)) return res.status(400).json({ error: 'Invalid start_date format (expected YYYY-MM-DD)' });
   if (!isValidDate(due_date)) return res.status(400).json({ error: 'Invalid due_date format (expected YYYY-MM-DD)' });
 
+  const refError = validateProgramPortfolio(program_id, portfolio_id);
+  if (refError) return res.status(400).json({ error: refError });
+
   const result = db.prepare(
-    `INSERT INTO projects (name, description, color, status, start_date, due_date, owner_id, priority, progress, tags)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO projects (name, description, color, status, start_date, due_date, owner_id, priority, progress, tags, program_id, portfolio_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     name,
     description || '',
@@ -89,7 +104,9 @@ router.post('/', requireRole('admin', 'member'), (req, res) => {
     owner_id || null,
     priority || 'medium',
     progress != null ? progress : 0,
-    tags || ''
+    tags || '',
+    program_id || null,
+    portfolio_id || null
   );
 
   const project = db.prepare(`
@@ -131,7 +148,12 @@ router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
   if (req.body.start_date !== undefined && !isValidDate(req.body.start_date)) return res.status(400).json({ error: 'Invalid start_date format (expected YYYY-MM-DD)' });
   if (req.body.due_date !== undefined && !isValidDate(req.body.due_date)) return res.status(400).json({ error: 'Invalid due_date format (expected YYYY-MM-DD)' });
 
-  const fields = ['name', 'description', 'color', 'archived', 'status', 'start_date', 'due_date', 'owner_id', 'priority', 'progress', 'tags'];
+  if (req.body.program_id !== undefined || req.body.portfolio_id !== undefined) {
+    const refError = validateProgramPortfolio(req.body.program_id, req.body.portfolio_id);
+    if (refError) return res.status(400).json({ error: refError });
+  }
+
+  const fields = ['name', 'description', 'color', 'archived', 'status', 'start_date', 'due_date', 'owner_id', 'priority', 'progress', 'tags', 'program_id', 'portfolio_id'];
   const updates = [];
   const values = [];
 

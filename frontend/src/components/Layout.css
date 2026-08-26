@@ -218,6 +218,51 @@
   height: 16px;
 }
 
+/* ── Nav Grouping (Portfolios / Programs) ── */
+.nav-group {
+  margin-bottom: 0.5rem;
+}
+
+.nav-group-label {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-family: 'Orbitron', 'Space Grotesk', sans-serif;
+}
+
+.nav-group-label-muted {
+  color: var(--text-muted);
+}
+
+.nav-group-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.nav-subgroup {
+  margin-left: 0.5rem;
+}
+
+.nav-subgroup-label {
+  padding: 0.25rem 0.625rem;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.nav-subgroup .project-nav-item {
+  padding-left: 1.25rem;
+}
+
 /* ── Main Area ── */
 .main-area {
   display: flex;

@@ -48,6 +48,34 @@ db.exec(`
     FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE SET NULL
   );
 
+  CREATE TABLE IF NOT EXISTS portfolios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    color TEXT DEFAULT '#6366f1',
+    archived INTEGER DEFAULT 0,
+    deleted_at TEXT,
+    owner_id INTEGER,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS programs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    portfolio_id INTEGER,
+    name TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    color TEXT DEFAULT '#6366f1',
+    archived INTEGER DEFAULT 0,
+    deleted_at TEXT,
+    owner_id INTEGER,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE SET NULL,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE SET NULL
+  );
+
   CREATE TABLE IF NOT EXISTS tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_id INTEGER NOT NULL,
@@ -266,6 +294,9 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_milestones_project_id ON milestones(project_id);
   CREATE INDEX IF NOT EXISTS idx_ai_sessions_user ON ai_sessions(user_id);
   CREATE INDEX IF NOT EXISTS idx_ai_messages_session ON ai_messages(session_id);
+  CREATE INDEX IF NOT EXISTS idx_portfolios_owner_id ON portfolios(owner_id);
+  CREATE INDEX IF NOT EXISTS idx_programs_portfolio_id ON programs(portfolio_id);
+  CREATE INDEX IF NOT EXISTS idx_programs_owner_id ON programs(owner_id);
 `);
 
 function hasColumn(table, column) {
@@ -507,6 +538,18 @@ const migrations = [
     up: () => {
       if (!hasColumn('tasks', 'milestone_id')) db.exec('ALTER TABLE tasks ADD COLUMN milestone_id INTEGER REFERENCES milestones(id) ON DELETE SET NULL');
       db.exec('CREATE INDEX IF NOT EXISTS idx_tasks_milestone_id ON tasks(milestone_id)');
+    }
+  },
+  {
+    name: 'projects_program_id',
+    up: () => {
+      if (!hasColumn('projects', 'program_id')) db.exec('ALTER TABLE projects ADD COLUMN program_id INTEGER REFERENCES programs(id) ON DELETE SET NULL');
+    }
+  },
+  {
+    name: 'projects_portfolio_id',
+    up: () => {
+      if (!hasColumn('projects', 'portfolio_id')) db.exec('ALTER TABLE projects ADD COLUMN portfolio_id INTEGER REFERENCES portfolios(id) ON DELETE SET NULL');
     }
   }
 ];

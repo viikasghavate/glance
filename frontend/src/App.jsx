@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import ProjectListPage from './pages/ProjectListPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
+import PortfolioPage from './pages/PortfolioPage';
 import UserManagementPage from './pages/UserManagementPage';
 import SettingsPage from './pages/SettingsPage';
 import Layout from './components/Layout';
@@ -23,6 +24,7 @@ export default function App() {
       <Route path="/" element={<ProtectedRoute><UIProvider><Layout /></UIProvider></ProtectedRoute>}>
         <Route index element={<DashboardPage />} />
         <Route path="projects" element={<ProjectListPage />} />
+        <Route path="ports" element={<PortfolioPage />} />
         <Route path="project/:id" element={<ProjectDetailPage />} />
         <Route path="users" element={<UserManagementPage />} />
         <Route path="settings" element={<SettingsPage />} />
