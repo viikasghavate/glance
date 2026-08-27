@@ -1,0 +1,114 @@
+.modal.task-form-modal {
+  max-width: 760px;
+}
+
+.task-form-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1rem 0.25rem;
+  margin-bottom: 1.25rem;
+  background: rgba(20, 26, 40, 0.4);
+}
+
+.task-form-section legend {
+  font-family: 'Orbitron', 'Space Grotesk', sans-serif;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--cyan);
+  padding: 0 0.5rem;
+  text-shadow: var(--glow-cyan);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.task-form-section .checklist-list,
+.task-form-section .subtask-list {
+  margin-bottom: 0.75rem;
+}
+
+.task-form-section .checklist-form,
+.task-form-section .dependency-add {
+  margin-bottom: 0.75rem;
+}
+
+.task-form-section .empty {
+  padding: 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.task-form-section .btn-ghost.btn-sm {
+  margin-bottom: 0.75rem;
+}
+
+.checklist-list,
+.subtask-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.8125rem;
+}
+
+.checklist-item input[type='checkbox'] {
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.checklist-item-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.checklist-item.completed .checklist-item-text {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.subtask-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  padding: 0.25rem 0;
+}
+
+.subtask-item-title {
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.checklist-form,
+.dependency-add {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.checklist-form input,
+.dependency-add select {
+  flex: 1;
+  font-size: 0.8125rem;
+}
+
+.checklist-form button,
+.dependency-add button {
+  flex-shrink: 0;
+}

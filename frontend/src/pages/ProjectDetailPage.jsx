@@ -22,7 +22,7 @@ export default function ProjectDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { apiFetch, hasRole } = useAuth();
-  const { view, setBreadcrumb } = useUI();
+  const { view, setBreadcrumb, projects } = useUI();
   const [project, setProject] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [users, setUsers] = useState([]);
@@ -63,14 +63,16 @@ export default function ProjectDetailPage() {
   }, []);
 
   const handleTaskSave = async (data) => {
+    let saved;
     if (editingTask) {
-      await apiFetch(`/tasks/${editingTask.id}`, { method: 'PATCH', body: JSON.stringify(data) });
+      saved = await apiFetch(`/tasks/${editingTask.id}`, { method: 'PATCH', body: JSON.stringify(data) });
     } else {
-      await apiFetch(`/tasks/project/${id}`, { method: 'POST', body: JSON.stringify(data) });
+      saved = await apiFetch(`/tasks/project/${id}`, { method: 'POST', body: JSON.stringify(data) });
     }
     setShowTaskModal(false);
     setEditingTask(null);
     fetchData();
+    return saved;
   };
 
   const handleTaskDelete = async (taskId) => {
@@ -185,6 +187,8 @@ export default function ProjectDetailPage() {
           tasks={tasks}
           sprints={sprints}
           milestones={milestones}
+          projects={projects}
+          apiFetch={apiFetch}
           onClose={() => { setShowTaskModal(false); setEditingTask(null); }}
           onSave={handleTaskSave}
         />

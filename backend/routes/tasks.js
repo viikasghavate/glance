@@ -310,6 +310,27 @@ router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
     }
   }
 
+  if (req.body.project_id !== undefined && req.body.project_id != null) {
+    const newProjectId = Number(req.body.project_id);
+    const targetProject = db.prepare('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL').get(newProjectId);
+    if (!targetProject) return res.status(400).json({ error: 'Project not found' });
+
+    if (newProjectId !== Number(task.project_id)) {
+      if (req.body.sprint_id === undefined && task.sprint_id != null) {
+        const sprint = db.prepare('SELECT project_id FROM sprints WHERE id = ?').get(task.sprint_id);
+        if (!sprint || sprint.project_id !== newProjectId) req.body.sprint_id = null;
+      }
+      if (req.body.milestone_id === undefined && task.milestone_id != null) {
+        const milestone = db.prepare('SELECT project_id FROM milestones WHERE id = ?').get(task.milestone_id);
+        if (!milestone || milestone.project_id !== newProjectId) req.body.milestone_id = null;
+      }
+      if (req.body.parent_id === undefined && task.parent_id != null) {
+        const parent = db.prepare('SELECT project_id FROM tasks WHERE id = ?').get(task.parent_id);
+        if (!parent || parent.project_id !== newProjectId) req.body.parent_id = null;
+      }
+    }
+  }
+
   if (req.body.sprint_id !== undefined && req.body.sprint_id != null) {
     const sprint = db.prepare('SELECT * FROM sprints WHERE id = ?').get(req.body.sprint_id);
     if (!sprint) return res.status(400).json({ error: 'Sprint not found' });
@@ -321,7 +342,7 @@ router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
     if (milestone.project_id !== task.project_id) return res.status(400).json({ error: 'Milestone must belong to the same project' });
   }
 
-  const fields = ['title', 'description', 'status', 'priority', 'due_date', 'assignee_id', 'position', 'labels', 'start_date', 'estimated_hours', 'time_spent', 'reporter_id', 'archived', 'parent_id', 'recurrence', 'recurrence_end', 'sprint_id', 'milestone_id', 'start_time', 'end_time'];
+  const fields = ['title', 'description', 'status', 'priority', 'due_date', 'assignee_id', 'position', 'labels', 'start_date', 'estimated_hours', 'time_spent', 'reporter_id', 'archived', 'parent_id', 'recurrence', 'recurrence_end', 'sprint_id', 'milestone_id', 'start_time', 'end_time', 'project_id'];
   const updates = [];
   const values = [];
 
