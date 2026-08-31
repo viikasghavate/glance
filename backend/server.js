@@ -22,6 +22,7 @@ import milestoneRoutes from './routes/milestones.js';
 import aiRoutes from './routes/ai.js';
 import portfolioRoutes from './routes/portfolios.js';
 import programRoutes from './routes/programs.js';
+import skillRoutes from './routes/skills.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -55,6 +56,7 @@ app.use('/api', milestoneRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/portfolios', portfolioRoutes);
 app.use('/api/programs', programRoutes);
+app.use('/api/skills', skillRoutes);
 
 const frontendDist = (() => {
   const containerPath = path.join(__dirname, 'frontend', 'dist');

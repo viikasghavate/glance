@@ -1,0 +1,32 @@
+.skills-tabs {
+  margin-bottom: 1.25rem;
+}
+
+.skills-add-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  max-width: 420px;
+}
+
+.skills-filters {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.level-badge {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.level-beginner { background: rgba(125, 139, 163, 0.15); color: #9aa7bd; }
+.level-intermediate { background: rgba(0, 229, 255, 0.12); color: var(--cyan); box-shadow: var(--glow-cyan); }
+.level-advanced { background: rgba(139, 92, 246, 0.15); color: var(--violet); box-shadow: var(--glow-violet); }
+.level-expert { background: rgba(255, 176, 32, 0.15); color: var(--warning); box-shadow: var(--glow-warning); }

@@ -276,6 +276,28 @@ db.exec(`
     FOREIGN KEY (session_id) REFERENCES ai_sessions(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS skills (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    category TEXT DEFAULT '',
+    description TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS user_skills (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    skill_id INTEGER NOT NULL,
+    level TEXT NOT NULL DEFAULT 'Intermediate'
+      CHECK(level IN ('Beginner','Intermediate','Advanced','Expert')),
+    years_experience REAL DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(user_id, skill_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE
+  );
+
   CREATE INDEX IF NOT EXISTS idx_projects_owner_id ON projects(owner_id);
   CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id);
   CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
@@ -297,6 +319,9 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_portfolios_owner_id ON portfolios(owner_id);
   CREATE INDEX IF NOT EXISTS idx_programs_portfolio_id ON programs(portfolio_id);
   CREATE INDEX IF NOT EXISTS idx_programs_owner_id ON programs(owner_id);
+  CREATE INDEX IF NOT EXISTS idx_skills_name ON skills(name);
+  CREATE INDEX IF NOT EXISTS idx_user_skills_user ON user_skills(user_id);
+  CREATE INDEX IF NOT EXISTS idx_user_skills_skill ON user_skills(skill_id);
 `);
 
 function hasColumn(table, column) {
@@ -559,6 +584,10 @@ const migrations = [
   {
     name: 'tasks_end_time',
     up: () => { if (!hasColumn('tasks', 'end_time')) db.exec('ALTER TABLE tasks ADD COLUMN end_time TEXT'); }
+  },
+  {
+    name: 'skills_tables',
+    up: () => { /* tables created in db.exec block */ }
   }
 ];
 

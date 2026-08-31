@@ -141,6 +141,23 @@ function insertNotification(userId, type, title, body, taskId) {
     .run(userId, type, title, body, JSON.stringify({ task_id: taskId }));
 }
 
+function upsertSkill(name, category, description) {
+  db.prepare('INSERT OR IGNORE INTO skills (name, category, description) VALUES (?, ?, ?)')
+    .run(name, category || '', description || '');
+  return db.prepare('SELECT id FROM skills WHERE name = ?').get(name).id;
+}
+
+function upsertUserSkill(userId, skillId, level, years) {
+  db.prepare(`
+    INSERT INTO user_skills (user_id, skill_id, level, years_experience)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(user_id, skill_id) DO UPDATE SET
+      level = excluded.level,
+      years_experience = excluded.years_experience,
+      updated_at = datetime('now')
+  `).run(userId, skillId, level, years ?? 0);
+}
+
 // ---------- main ----------
 console.log('Seeding demo data into', dbPath);
 
@@ -514,6 +531,54 @@ const seed = db.transaction(() => {
 });
 
 seed();
+
+// ---------- Skills catalog + user skills (idempotent) ----------
+const skillDefs = [
+  ['React', 'Frontend', ''],
+  ['TypeScript', 'Frontend', ''],
+  ['CSS / Tailwind', 'Frontend', ''],
+  ['Node.js', 'Backend', ''],
+  ['SQL', 'Backend', ''],
+  ['PostgreSQL', 'Backend', ''],
+  ['Docker', 'DevOps', ''],
+  ['Kubernetes', 'DevOps', ''],
+  ['Terraform', 'DevOps', ''],
+  ['Python', 'Data', ''],
+  ['Data Analysis', 'Data', ''],
+  ['Machine Learning', 'AI', ''],
+  ['Prompt Engineering', 'AI', ''],
+  ['Figma', 'Design', ''],
+  ['UX Research', 'Design', '']
+];
+
+const skillIds = {};
+for (const [name, category, description] of skillDefs) {
+  skillIds[name] = upsertSkill(name, category, description);
+}
+
+const userSkillDefs = [
+  [dev, 'React', 'Advanced', 6],
+  [dev, 'TypeScript', 'Advanced', 5],
+  [dev, 'Node.js', 'Advanced', 7],
+  [dev, 'SQL', 'Intermediate', 4],
+  [dev, 'Docker', 'Intermediate', 3],
+  [dev, 'Kubernetes', 'Beginner', 1],
+  [pm, 'SQL', 'Intermediate', 3],
+  [pm, 'Data Analysis', 'Advanced', 5],
+  [pm, 'Prompt Engineering', 'Intermediate', 1],
+  [designer, 'Figma', 'Expert', 8],
+  [designer, 'UX Research', 'Advanced', 6],
+  [designer, 'CSS / Tailwind', 'Intermediate', 3],
+  [viki, 'React', 'Intermediate', 2],
+  [viki, 'Terraform', 'Beginner', 1],
+  [viki, 'Machine Learning', 'Beginner', 1]
+];
+
+for (const [userId, skillName, level, years] of userSkillDefs) {
+  upsertUserSkill(userId, skillIds[skillName], level, years);
+}
+
+console.log(`Seeded ${skillDefs.length} skills and ${userSkillDefs.length} user-skill assignments.`);
 
 // Summary
 const projCount = db.prepare('SELECT COUNT(*) c FROM projects WHERE deleted_at IS NULL').get().c;
