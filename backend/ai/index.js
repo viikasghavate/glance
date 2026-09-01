@@ -1,6 +1,7 @@
 import { chat } from './llm.js';
 import { getToolDefinitions, executeTool } from './tools.js';
 import { SYSTEM_PROMPT } from './system.js';
+import { verifyCounts } from './verify.js';
 
 const MAX_ITERATIONS = 6;
 const MAX_CONTEXT_MESSAGES = 20;
@@ -61,7 +62,7 @@ export async function runAssistant(user, history) {
       continue;
     }
 
-    return msg.content || '';
+    return verifyCounts(msg.content || '').reply;
   }
 
   return 'I could not complete that request.';
