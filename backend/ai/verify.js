@@ -6,47 +6,52 @@
 
 import db from '../db.js';
 
+// The model often wraps numbers in markdown bold (**18**) or other formatting.
+// This matches a number plus any surrounding non-word formatting, so we can
+// replace just the digits while leaving the formatting intact.
+const NUM = String.raw`(\d+)[^\w]*`;
+
 // Each metric: a label the model might use in its reply, and a query returning
 // the authoritative count. Order matters — more specific labels first.
 const METRICS = [
   {
     label: 'overdue',
-    pattern: /(\d+)\s*(?:overdue|late)\s*(?:tasks?|items?)/gi,
+    pattern: new RegExp(`${NUM}\\s*(?:overdue|late)\\s*(?:tasks?|items?)`, 'gi'),
     count: () => db.prepare(
       "SELECT COUNT(*) c FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status != 'done' AND due_date IS NOT NULL AND due_date < date('now')"
     ).get().c
   },
   {
     label: 'in progress',
-    pattern: /(\d+)\s*(?:tasks?|items?)\s*(?:that are|currently|marked)?\s*in\s*progress/gi,
+    pattern: new RegExp(`${NUM}\\s*(?:tasks?|items?)\\s*(?:that are|currently|marked)?\\s*in\\s*progress`, 'gi'),
     count: () => db.prepare(
       "SELECT COUNT(*) c FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status = 'in_progress'"
     ).get().c
   },
   {
     label: 'done',
-    pattern: /(\d+)\s*(?:tasks?|items?)\s*(?:that are|marked|completed)?\s*(?:as\s+)?done/gi,
+    pattern: new RegExp(`${NUM}\\s*(?:tasks?|items?)\\s*(?:that are|marked|completed)?\\s*(?:as\\s+)?done`, 'gi'),
     count: () => db.prepare(
       "SELECT COUNT(*) c FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status = 'done'"
     ).get().c
   },
   {
     label: 'todo',
-    pattern: /(\d+)\s*(?:tasks?|items?)\s*(?:that are|marked)?\s*(?:as\s+)?(?:to\s*do|todo)/gi,
+    pattern: new RegExp(`${NUM}\\s*(?:tasks?|items?)\\s*(?:that are|marked)?\\s*(?:as\\s+)?(?:to\\s*do|todo)`, 'gi'),
     count: () => db.prepare(
       "SELECT COUNT(*) c FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status = 'todo'"
     ).get().c
   },
   {
     label: 'projects',
-    pattern: /(\d+)\s*(?:active\s+)?projects?/gi,
+    pattern: new RegExp(`${NUM}\\s*(?:active\\s+)?projects?`, 'gi'),
     count: () => db.prepare(
       'SELECT COUNT(*) c FROM projects WHERE archived = 0 AND deleted_at IS NULL'
     ).get().c
   },
   {
     label: 'tasks',
-    pattern: /(\d+)\s*(?:total\s+)?tasks?/gi,
+    pattern: new RegExp(`${NUM}\\s*(?:total\\s+)?tasks?`, 'gi'),
     count: () => db.prepare(
       'SELECT COUNT(*) c FROM tasks WHERE archived = 0 AND deleted_at IS NULL'
     ).get().c
@@ -64,6 +69,8 @@ export function verifyCounts(reply) {
   for (const m of METRICS) {
     const actual = m.count();
     // Replace every occurrence of "<number> <label>" where the number is wrong.
+    // The number may be wrapped in markdown (**18**) — match the number plus any
+    // surrounding non-word formatting so we can replace just the digits.
     out = out.replace(m.pattern, (match, num) => {
       const n = parseInt(num, 10);
       if (n !== actual) {
