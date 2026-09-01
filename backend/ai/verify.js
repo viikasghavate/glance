@@ -13,6 +13,8 @@ const NUM = String.raw`(\d+)[^\w]*`;
 
 // Each metric: a label the model might use in its reply, and a query returning
 // the authoritative count. Order matters — more specific labels first.
+// Patterns are deliberately broad to catch varied phrasings like
+// "182 tasks with a status of done" or "0 tasks currently in progress".
 const METRICS = [
   {
     label: 'overdue',
@@ -23,21 +25,21 @@ const METRICS = [
   },
   {
     label: 'in progress',
-    pattern: new RegExp(`${NUM}\\s*(?:tasks?|items?)\\s*(?:that are|currently|marked)?\\s*in\\s*progress`, 'gi'),
+    pattern: new RegExp(`${NUM}\\s*(?:tasks?|items?)[^.]*?in\\s*progress`, 'gi'),
     count: () => db.prepare(
       "SELECT COUNT(*) c FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status = 'in_progress'"
     ).get().c
   },
   {
     label: 'done',
-    pattern: new RegExp(`${NUM}\\s*(?:tasks?|items?)\\s*(?:that are|marked|completed)?\\s*(?:as\\s+)?done`, 'gi'),
+    pattern: new RegExp(`${NUM}\\s*(?:tasks?|items?)[^.]*?(?:status\\s*of\\s*)?(?:as\\s+)?done`, 'gi'),
     count: () => db.prepare(
       "SELECT COUNT(*) c FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status = 'done'"
     ).get().c
   },
   {
     label: 'todo',
-    pattern: new RegExp(`${NUM}\\s*(?:tasks?|items?)\\s*(?:that are|marked)?\\s*(?:as\\s+)?(?:to\\s*do|todo)`, 'gi'),
+    pattern: new RegExp(`${NUM}\\s*(?:tasks?|items?)[^.]*?(?:status\\s*of\\s*)?(?:as\\s+)?(?:to\\s*do|todo)`, 'gi'),
     count: () => db.prepare(
       "SELECT COUNT(*) c FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status = 'todo'"
     ).get().c
@@ -51,7 +53,10 @@ const METRICS = [
   },
   {
     label: 'tasks',
-    pattern: new RegExp(`${NUM}\\s*(?:total\\s+)?tasks?`, 'gi'),
+    // Generic total-task count. Negative lookahead so it does NOT match when a
+    // status qualifier follows (e.g. "49 tasks with a status of done") — those
+    // are handled by the specific done/in_progress/todo/overdue metrics above.
+    pattern: new RegExp(`${NUM}\\s*(?:total\\s+)?tasks?(?!\\s*(?:with|that|currently|marked|in\\s*progress|as\\s+done|as\\s+todo|overdue|late))`, 'gi'),
     count: () => db.prepare(
       'SELECT COUNT(*) c FROM tasks WHERE archived = 0 AND deleted_at IS NULL'
     ).get().c
