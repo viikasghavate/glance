@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { logActivity } from '../services/activity.js';
 import { runAssistant } from '../ai/index.js';
+import { ragChat } from '../ai/rag-chat.js';
 import db from '../db.js';
 
 const router = Router();
@@ -59,6 +60,23 @@ router.post('/chat', async (req, res) => {
   } catch (err) {
     console.error('AI chat error:', err.message);
     res.status(502).json({ error: 'AI service unavailable' });
+  }
+});
+
+// RAG endpoint: answers ONLY from Glance docs/schema using a small local model.
+router.post('/rag', async (req, res) => {
+  const { message } = req.body;
+  if (!message || !String(message).trim()) {
+    return res.status(400).json({ error: 'message is required' });
+  }
+  const text = String(message).trim();
+  try {
+    const { reply, usedRag, sources } = await ragChat(text);
+    logActivity(req.user.id, 'ai.rag', 'ai', null, null, { prompt: text, reply, usedRag });
+    res.json({ reply, used_rag: usedRag, sources: sources || [] });
+  } catch (err) {
+    console.error('RAG chat error:', err.message);
+    res.status(502).json({ error: 'RAG service unavailable: ' + err.message });
   }
 });
 
