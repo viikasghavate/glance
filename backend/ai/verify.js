@@ -54,9 +54,11 @@ const METRICS = [
   {
     label: 'tasks',
     // Generic total-task count. Negative lookahead so it does NOT match when a
-    // status qualifier follows (e.g. "49 tasks with a status of done") — those
-    // are handled by the specific done/in_progress/todo/overdue metrics above.
-    pattern: new RegExp(`${NUM}\\s*(?:total\\s+)?tasks?(?!\\s*(?:with|that|currently|marked|in\\s*progress|as\\s+done|as\\s+todo|overdue|late))`, 'gi'),
+    // status qualifier follows (e.g. "49 tasks marked as done") — those are
+    // handled by the specific done/in_progress/todo/overdue metrics above.
+    // The \b prevents backtracking to singular "task" (which would leave the
+    // trailing "s" and let the lookahead miss the status word).
+    pattern: new RegExp(`${NUM}\\s*(?:total\\s+)?tasks?\\b(?!\\s*(?:with|that|currently|marked|in\\s*progress|as\\s+done|as\\s+todo|overdue|late))`, 'gi'),
     count: () => db.prepare(
       'SELECT COUNT(*) c FROM tasks WHERE archived = 0 AND deleted_at IS NULL'
     ).get().c
