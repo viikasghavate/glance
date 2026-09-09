@@ -298,6 +298,33 @@ db.exec(`
     FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS project_skill_requirements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    skill_id INTEGER NOT NULL,
+    min_level TEXT NOT NULL DEFAULT 'Intermediate'
+      CHECK(min_level IN ('Beginner','Intermediate','Advanced','Expert')),
+    min_count INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(project_id, skill_id),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS skill_endorsements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    endorser_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    skill_id INTEGER NOT NULL,
+    note TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(endorser_id, user_id, skill_id),
+    FOREIGN KEY (endorser_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE
+  );
+
   CREATE INDEX IF NOT EXISTS idx_projects_owner_id ON projects(owner_id);
   CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id);
   CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
@@ -322,6 +349,10 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_skills_name ON skills(name);
   CREATE INDEX IF NOT EXISTS idx_user_skills_user ON user_skills(user_id);
   CREATE INDEX IF NOT EXISTS idx_user_skills_skill ON user_skills(skill_id);
+  CREATE INDEX IF NOT EXISTS idx_pkr_project ON project_skill_requirements(project_id);
+  CREATE INDEX IF NOT EXISTS idx_pkr_skill ON project_skill_requirements(skill_id);
+  CREATE INDEX IF NOT EXISTS idx_skill_endorsements_user ON skill_endorsements(user_id);
+  CREATE INDEX IF NOT EXISTS idx_skill_endorsements_skill ON skill_endorsements(skill_id);
 `);
 
 function hasColumn(table, column) {
@@ -587,6 +618,10 @@ const migrations = [
   },
   {
     name: 'skills_tables',
+    up: () => { /* tables created in db.exec block */ }
+  },
+  {
+    name: 'skills_phase2_tables',
     up: () => { /* tables created in db.exec block */ }
   }
 ];

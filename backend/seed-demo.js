@@ -580,6 +580,77 @@ for (const [userId, skillName, level, years] of userSkillDefs) {
 
 console.log(`Seeded ${skillDefs.length} skills and ${userSkillDefs.length} user-skill assignments.`);
 
+// ---------- Project skill requirements (idempotent) ----------
+function upsertRequirement(projectId, skillName, minLevel, minCount) {
+  const skillId = skillIds[skillName];
+  if (!skillId) return;
+  db.prepare(`
+    INSERT INTO project_skill_requirements (project_id, skill_id, min_level, min_count)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(project_id, skill_id) DO UPDATE SET
+      min_level = excluded.min_level,
+      min_count = excluded.min_count,
+      updated_at = datetime('now')
+  `).run(projectId, skillId, minLevel, minCount);
+}
+
+function projectIdByName(name) {
+  const row = db.prepare('SELECT id FROM projects WHERE name = ? AND deleted_at IS NULL').get(name);
+  return row ? row.id : null;
+}
+
+const p1 = projectIdByName('Website Redesign');
+const p2 = projectIdByName('Mobile App Launch');
+const p3 = projectIdByName('API Platform v2');
+
+// Website Redesign (p1) — needs React Advanced x2 (only dev has it → gap)
+if (p1) {
+  upsertRequirement(p1, 'React', 'Advanced', 2);
+  upsertRequirement(p1, 'CSS / Tailwind', 'Intermediate', 1);
+  upsertRequirement(p1, 'Figma', 'Advanced', 1);
+}
+
+// Mobile App Launch (p2) — needs React Advanced x2 (gap) + Node.js
+if (p2) {
+  upsertRequirement(p2, 'React', 'Advanced', 2);
+  upsertRequirement(p2, 'Node.js', 'Advanced', 1);
+  upsertRequirement(p2, 'Figma', 'Expert', 1);
+}
+
+// API Platform v2 (p3) — needs Node.js Advanced x2 (gap) + SQL
+if (p3) {
+  upsertRequirement(p3, 'Node.js', 'Advanced', 2);
+  upsertRequirement(p3, 'SQL', 'Intermediate', 1);
+  upsertRequirement(p3, 'PostgreSQL', 'Intermediate', 1);
+}
+
+console.log('Seeded project skill requirements.');
+
+// ---------- Skill endorsements (idempotent) ----------
+function upsertEndorsement(endorserId, userId, skillName, note) {
+  const skillId = skillIds[skillName];
+  if (!skillId) return;
+  db.prepare(`
+    INSERT OR IGNORE INTO skill_endorsements (endorser_id, user_id, skill_id, note)
+    VALUES (?, ?, ?, ?)
+  `).run(endorserId, userId, skillId, note || '');
+}
+
+// dev endorses designer for Figma + UX Research
+upsertEndorsement(dev, designer, 'Figma', 'Best Figma work on the team.');
+upsertEndorsement(dev, designer, 'UX Research', 'Great at user interviews.');
+// pm endorses dev for React + Node.js
+upsertEndorsement(pm, dev, 'React', 'Ships clean, fast components.');
+upsertEndorsement(pm, dev, 'Node.js', 'Solid backend work.');
+// designer endorses pm for Data Analysis
+upsertEndorsement(designer, pm, 'Data Analysis', 'Turns numbers into clear stories.');
+// viki endorses dev for TypeScript
+upsertEndorsement(viki, dev, 'TypeScript', 'Strong typing discipline.');
+// pm endorses designer for CSS / Tailwind
+upsertEndorsement(pm, designer, 'CSS / Tailwind', 'Pixel-perfect styling.');
+
+console.log('Seeded skill endorsements.');
+
 // Summary
 const projCount = db.prepare('SELECT COUNT(*) c FROM projects WHERE deleted_at IS NULL').get().c;
 const taskCount = db.prepare('SELECT COUNT(*) c FROM tasks WHERE deleted_at IS NULL').get().c;

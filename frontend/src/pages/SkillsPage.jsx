@@ -25,6 +25,7 @@ export default function SkillsPage() {
       <div className="view-toggle skills-tabs">
         <button className={tab === 'mine' ? 'active' : ''} onClick={() => setTab('mine')}>My Skills</button>
         <button className={tab === 'coverage' ? 'active' : ''} onClick={() => setTab('coverage')}>Team Coverage</button>
+        <button className={tab === 'gap' ? 'active' : ''} onClick={() => setTab('gap')}>Project Gap</button>
         {isAdmin && (
           <button className={tab === 'catalog' ? 'active' : ''} onClick={() => setTab('catalog')}>Catalog</button>
         )}
@@ -32,6 +33,7 @@ export default function SkillsPage() {
 
       {tab === 'mine' && <MySkills />}
       {tab === 'coverage' && <TeamCoverage />}
+      {tab === 'gap' && <ProjectGap />}
       {tab === 'catalog' && isAdmin && <Catalog />}
     </div>
   );
@@ -125,7 +127,12 @@ function MySkills() {
             <tbody>
               {profile.skills.map(s => (
                 <tr key={s.skillId}>
-                  <td>{s.name}</td>
+                  <td>
+                    {s.name}
+                    {s.endorsements > 0 && (
+                      <span className="endorse-badge" title={`Endorsed by ${s.endorsements}`}>🛡 {s.endorsements}</span>
+                    )}
+                  </td>
                   <td>{s.category || '-'}</td>
                   <td>
                     <select
@@ -166,7 +173,7 @@ function MySkills() {
 }
 
 function TeamCoverage() {
-  const { apiFetch } = useAuth();
+  const { apiFetch, user } = useAuth();
   const [rows, setRows] = useState([]);
   const [catalog, setCatalog] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -174,6 +181,8 @@ function TeamCoverage() {
   const [q, setQ] = useState('');
   const [skill, setSkill] = useState('');
   const [level, setLevel] = useState('');
+  const [orderBy, setOrderBy] = useState('');
+  const [endorseTarget, setEndorseTarget] = useState(null);
 
   useEffect(() => {
     apiFetch('/skills').then(setCatalog).catch(() => {});
@@ -186,6 +195,7 @@ function TeamCoverage() {
       if (q) params.set('q', q);
       if (skill) params.set('skill', skill);
       if (level) params.set('level', level);
+      if (orderBy) params.set('orderBy', orderBy);
       const qs = params.toString();
       const data = await apiFetch(`/skills/coverage${qs ? `?${qs}` : ''}`);
       setRows(data);
@@ -196,7 +206,7 @@ function TeamCoverage() {
     }
   };
 
-  useEffect(() => { load(); }, [q, skill, level]);
+  useEffect(() => { load(); }, [q, skill, level, orderBy]);
 
   return (
     <div>
@@ -218,6 +228,10 @@ function TeamCoverage() {
           <option value="">Any Level</option>
           {LEVELS.map(l => <option key={l} value={l}>{l}+</option>)}
         </select>
+        <select value={orderBy} onChange={e => setOrderBy(e.target.value)} style={{ maxWidth: '180px' }}>
+          <option value="">Sort: Name</option>
+          <option value="endorsements">Most Endorsed</option>
+        </select>
       </div>
 
       {loading ? (
@@ -234,6 +248,8 @@ function TeamCoverage() {
                 <th>Category</th>
                 <th>Level</th>
                 <th>Years</th>
+                <th>Endorsed</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -244,12 +260,328 @@ function TeamCoverage() {
                   <td>{r.category || '-'}</td>
                   <td><span className={`level-badge ${LEVEL_CLASS[r.level] || ''}`}>{r.level}</span></td>
                   <td className="date-cell">{r.yearsExperience != null ? r.yearsExperience : '-'}</td>
+                  <td className="date-cell">
+                    {r.endorsementCount > 0 ? (
+                      <span className="endorse-badge">🛡 {r.endorsementCount}</span>
+                    ) : (
+                      <span className="endorse-badge endorse-muted">0</span>
+                    )}
+                  </td>
+                  <td>
+                    {r.userId !== user.id && (
+                      <button
+                        className="btn-ghost btn-sm"
+                        onClick={() => setEndorseTarget(r)}
+                      >
+                        + Endorse
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+
+      {endorseTarget && (
+        <EndorseModal
+          target={endorseTarget}
+          onClose={() => setEndorseTarget(null)}
+          onSaved={async () => {
+            setEndorseTarget(null);
+            await load();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function EndorseModal({ target, onClose, onSaved }) {
+  const { apiFetch } = useAuth();
+  const [note, setNote] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError('');
+    try {
+      await apiFetch('/skills/endorsements', {
+        method: 'POST',
+        body: JSON.stringify({ userId: target.userId, skillId: target.skillId, note: note.trim() })
+      });
+      await onSaved();
+    } catch (err) {
+      setError(err.message);
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <h2>Endorse {target.userName}</h2>
+        <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>
+          for <strong>{target.skillName}</strong>
+        </p>
+        {error && <div className="error-msg">{error}</div>}
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="endnote">Note (optional)</label>
+            <textarea
+              id="endnote"
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              placeholder="Why are you endorsing this skill?"
+            />
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              {submitting ? 'Saving...' : 'Endorse'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function ProjectGap() {
+  const { apiFetch, hasRole } = useAuth();
+  const isAdmin = hasRole('admin');
+  const [projects, setProjects] = useState([]);
+  const [catalog, setCatalog] = useState([]);
+  const [projectId, setProjectId] = useState('');
+  const [reqs, setReqs] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [expanded, setExpanded] = useState(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [editing, setEditing] = useState(null);
+
+  useEffect(() => {
+    apiFetch('/projects').then(setProjects).catch(() => {});
+    apiFetch('/skills').then(setCatalog).catch(() => {});
+  }, []);
+
+  const load = async (pid) => {
+    if (!pid) { setReqs([]); return; }
+    setLoading(true);
+    setError('');
+    try {
+      const data = await apiFetch(`/skills/project/${pid}/requirements`);
+      setReqs(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const selectProject = (pid) => {
+    setProjectId(pid);
+    setExpanded(null);
+    load(pid);
+  };
+
+  const removeRequirement = async (skillId) => {
+    try {
+      await apiFetch(`/skills/project/${projectId}/requirements/${skillId}`, { method: 'DELETE' });
+      await load(projectId);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  return (
+    <div>
+      {error && <div className="error-msg">{error}</div>}
+
+      <div className="skills-filters">
+        <select value={projectId} onChange={e => selectProject(e.target.value)} style={{ maxWidth: '320px' }}>
+          <option value="">Select a project...</option>
+          {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+        {isAdmin && projectId && (
+          <button className="btn-primary" onClick={() => { setEditing(null); setShowAdd(true); }}>+ Add Requirement</button>
+        )}
+      </div>
+
+      {!projectId ? (
+        <div className="empty">Select a project to see its skill requirements and coverage gap.</div>
+      ) : loading ? (
+        <div className="loading"><div className="spinner" /></div>
+      ) : reqs.length === 0 ? (
+        <div className="empty">No skill requirements defined for this project yet.</div>
+      ) : (
+        <div className="members-table-wrap">
+          <table className="members-table">
+            <thead>
+              <tr>
+                <th>Skill</th>
+                <th>Category</th>
+                <th>Min Level</th>
+                <th>Needed</th>
+                <th>Covered</th>
+                <th>Status</th>
+                {isAdmin && <th></th>}
+              </tr>
+            </thead>
+            <tbody>
+              {reqs.map(r => (
+                <tr key={r.skillId}>
+                  <td>{r.skillName}</td>
+                  <td>{r.category || '-'}</td>
+                  <td><span className={`level-badge ${LEVEL_CLASS[r.minLevel] || ''}`}>{r.minLevel}</span></td>
+                  <td className="date-cell">{r.minCount}</td>
+                  <td className="date-cell">
+                    <button
+                      className="btn-ghost btn-sm"
+                      onClick={() => setExpanded(expanded === r.skillId ? null : r.skillId)}
+                      title="View covered users"
+                    >
+                      {r.coveredCount}
+                    </button>
+                  </td>
+                  <td>
+                    {r.gap > 0 ? (
+                      <span className="gap-badge gap-open">Gap {r.gap}</span>
+                    ) : (
+                      <span className="gap-badge gap-met">Met</span>
+                    )}
+                  </td>
+                  {isAdmin && (
+                    <td>
+                      <div style={{ display: 'flex', gap: '0.25rem' }}>
+                        <button className="btn-ghost btn-sm" onClick={() => { setEditing(r); setShowAdd(true); }}>Edit</button>
+                        <button
+                          className="btn-ghost btn-sm"
+                          style={{ color: 'var(--danger)' }}
+                          onClick={() => removeRequirement(r.skillId)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {expanded != null && (() => {
+            const r = reqs.find(x => x.skillId === expanded);
+            if (!r) return null;
+            return (
+              <div className="gap-covered">
+                <h3>Covered by ({r.coveredCount})</h3>
+                {r.coveredUsers.length === 0 ? (
+                  <div className="empty">No one currently meets this requirement.</div>
+                ) : (
+                  <ul>
+                    {r.coveredUsers.map(u => (
+                      <li key={u.userId}>
+                        {u.userName} <span className={`level-badge ${LEVEL_CLASS[u.level] || ''}`}>{u.level}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {showAdd && (
+        <RequirementModal
+          requirement={editing}
+          projectId={projectId}
+          catalog={catalog}
+          onClose={() => setShowAdd(false)}
+          onSaved={async () => {
+            setShowAdd(false);
+            await load(projectId);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function RequirementModal({ requirement, projectId, catalog, onClose, onSaved }) {
+  const { apiFetch } = useAuth();
+  const [skillId, setSkillId] = useState(requirement?.skillId || '');
+  const [minLevel, setMinLevel] = useState(requirement?.minLevel || 'Intermediate');
+  const [minCount, setMinCount] = useState(requirement?.minCount || 1);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!skillId) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      await apiFetch(`/skills/project/${projectId}/requirements/${skillId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ minLevel, minCount: Number(minCount) })
+      });
+      await onSaved();
+    } catch (err) {
+      setError(err.message);
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <h2>{requirement ? 'Edit Requirement' : 'Add Requirement'}</h2>
+        {error && <div className="error-msg">{error}</div>}
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="reqskill">Skill</label>
+            <select
+              id="reqskill"
+              value={skillId}
+              onChange={e => setSkillId(e.target.value)}
+              disabled={!!requirement}
+              required
+            >
+              <option value="">Select a skill...</option>
+              {catalog.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label htmlFor="reqlevel">Minimum Level</label>
+            <select id="reqlevel" value={minLevel} onChange={e => setMinLevel(e.target.value)}>
+              {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label htmlFor="reqcount">Minimum Count</label>
+            <input
+              id="reqcount"
+              type="number"
+              min="1"
+              step="1"
+              value={minCount}
+              onChange={e => setMinCount(e.target.value)}
+              required
+            />
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              {submitting ? 'Saving...' : requirement ? 'Save' : 'Add'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
