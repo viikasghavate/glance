@@ -11,6 +11,9 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
   const [checklist, setChecklist] = useState([]);
   const [checklistText, setChecklistText] = useState('');
   const [loadingChecklist, setLoadingChecklist] = useState(true);
+  const [attachments, setAttachments] = useState([]);
+  const [loadingAttachments, setLoadingAttachments] = useState(true);
+  const [uploading, setUploading] = useState(false);
 
   const parentTask = tasks?.find(t => t.id === task.parent_id) || null;
   const subtasks = tasks?.filter(t => t.parent_id === task.id) || [];
@@ -76,6 +79,19 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
 
   useEffect(() => { fetchChecklist(); }, [task.id]);
 
+  const fetchAttachments = async () => {
+    try {
+      const data = await apiFetch(`/attachments/task/${task.id}`);
+      setAttachments(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingAttachments(false);
+    }
+  };
+
+  useEffect(() => { fetchAttachments(); }, [task.id]);
+
   const handleAddChecklistItem = async (e) => {
     e.preventDefault();
     if (!checklistText.trim()) return;
@@ -132,6 +148,81 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
   };
 
   const checklistDone = checklist.filter(i => i.completed).length;
+
+  const formatBytes = (bytes) => {
+    if (bytes == null) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const relativeTime = (dateStr) => {
+    if (!dateStr) return '';
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const sec = Math.floor(diff / 1000);
+    if (sec < 60) return 'just now';
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min}m ago`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr}h ago`;
+    const day = Math.floor(hr / 24);
+    if (day < 30) return `${day}d ago`;
+    const mo = Math.floor(day / 30);
+    if (mo < 12) return `${mo}mo ago`;
+    return `${Math.floor(mo / 12)}y ago`;
+  };
+
+  const handleUpload = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const attachment = await apiFetch(`/attachments/task/${task.id}`, {
+        method: 'POST',
+        body: formData
+      });
+      setAttachments(prev => [attachment, ...prev]);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDownload = async (attachment) => {
+    const token = localStorage.getItem('token');
+    const url = `/api/attachments/${attachment.id}/download`;
+    try {
+      const res = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = attachment.filename || '';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteAttachment = async (attachment) => {
+    if (!window.confirm(`Delete attachment "${attachment.filename}"?`)) return;
+    try {
+      await apiFetch(`/attachments/${attachment.id}`, { method: 'DELETE' });
+      setAttachments(prev => prev.filter(a => a.id !== attachment.id));
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleAddComment = async (e) => {
     e.preventDefault();
@@ -358,6 +449,48 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
               />
               <button type="submit" className="btn-primary btn-sm" disabled={!checklistText.trim()}>Add</button>
             </form>
+          )}
+        </div>
+
+        <div className="attachments-section">
+          <h4>Attachments {attachments.length > 0 && <span className="attachments-count">{attachments.length}</span>}</h4>
+          {loadingAttachments ? (
+            <div className="loading"><div className="spinner" /></div>
+          ) : attachments.length === 0 ? (
+            <p className="empty">No attachments yet.</p>
+          ) : (
+            <div className="attachments-list">
+              {attachments.map(a => (
+                <div key={a.id} className="attachment-item">
+                  <span className="attachment-icon" aria-hidden="true">📎</span>
+                  <button className="attachment-name" onClick={() => handleDownload(a)} title={`Download ${a.filename}`}>
+                    {a.filename}
+                  </button>
+                  <span className="attachment-meta">
+                    {formatBytes(a.size)}
+                    {a.uploader_name ? ` · ${a.uploader_name}` : ''}
+                    {a.created_at ? ` · ${relativeTime(a.created_at)}` : ''}
+                  </span>
+                  {!readOnly && (
+                    <button className="btn-ghost btn-sm" onClick={() => handleDeleteAttachment(a)} title="Delete">&times;</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {!readOnly && (
+            <div className="attachment-upload">
+              <input
+                type="file"
+                id={`attachment-upload-${task.id}`}
+                onChange={handleUpload}
+                disabled={uploading}
+                className="attachment-file-input"
+              />
+              <label htmlFor={`attachment-upload-${task.id}`} className={`btn-primary btn-sm ${uploading ? 'uploading' : ''}`}>
+                {uploading ? 'Uploading...' : 'Upload file'}
+              </label>
+            </div>
           )}
         </div>
 

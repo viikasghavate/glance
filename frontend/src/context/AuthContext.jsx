@@ -6,7 +6,10 @@ const API = '/api';
 
 async function apiFetch(path, options = {}) {
   const token = localStorage.getItem('token');
-  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  const headers = { ...options.headers };
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
   if (token) headers['Authorization'] = `Bearer ${token}`;
   const res = await fetch(`${API}${path}`, { ...options, headers });
   const data = await res.json();
