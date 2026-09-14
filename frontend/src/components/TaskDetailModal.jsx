@@ -23,6 +23,7 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
   const [minutes, setMinutes] = useState('');
   const [note, setNote] = useState('');
   const [submittingTime, setSubmittingTime] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const parentTask = tasks?.find(t => t.id === task.parent_id) || null;
   const subtasks = tasks?.filter(t => t.parent_id === task.id) || [];
@@ -140,6 +141,39 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
       await fetchWatchers();
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleCopyLink = async () => {
+    const url = window.location.origin + '/project/' + task.project_id + '?task=' + task.id;
+    const fallbackCopy = () => {
+      const textarea = document.createElement('textarea');
+      textarea.value = url;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      try {
+        document.execCommand('copy');
+      } catch (err) {
+        console.error(err);
+      }
+      document.body.removeChild(textarea);
+    };
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        fallbackCopy();
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      console.error(err);
+      fallbackCopy();
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
     }
   };
 
@@ -398,6 +432,9 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
           {!readOnly && (
             <button className="btn-ghost btn-sm" onClick={handleDuplicate}>⧉ Duplicate</button>
           )}
+          <button className="btn-ghost btn-sm" onClick={handleCopyLink}>
+            {copied ? 'Copied!' : 'Copy Link'}
+          </button>
           <button className="btn-ghost btn-sm" onClick={onClose}>&times;</button>
         </div>
 
