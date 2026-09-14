@@ -12,6 +12,8 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
   const [dragOverCol, setDragOverCol] = useState(null);
   const [collapsed, setCollapsed] = useState({});
   const [filterLabel, setFilterLabel] = useState('');
+  const [filterPriority, setFilterPriority] = useState('');
+  const [filterAssignee, setFilterAssignee] = useState('');
 
   const toggleCollapse = (id) => {
     setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
@@ -47,6 +49,8 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
     return flat
       .filter(t => t.status === status)
       .filter(t => !filterLabel || (t.labels ? t.labels.split(',').map(l => l.trim().toLowerCase()) : []).includes(filterLabel.toLowerCase()))
+      .filter(t => !filterPriority || t.priority === filterPriority)
+      .filter(t => !filterAssignee || String(t.assignee_id) === filterAssignee)
       .sort((a, b) => a.position - b.position);
   };
 
@@ -109,6 +113,18 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
           <option value="">All Labels</option>
           {distinctLabels.map(l => (
             <option key={l} value={l}>{l}</option>
+          ))}
+        </select>
+        <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
+          <option value="">All Priorities</option>
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
+        <select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)}>
+          <option value="">All Assignees</option>
+          {users.map(u => (
+            <option key={u.id} value={u.id}>{u.name}</option>
           ))}
         </select>
       </div>
