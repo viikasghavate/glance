@@ -241,11 +241,14 @@ export default function Layout() {
       try { payload = JSON.parse(payload); } catch { payload = null; }
     }
     const projectId = payload && payload.project_id;
+    const taskId = payload && payload.task_id;
     if (!n.read) {
       try { await apiFetch(`/notifications/${n.id}/read`, { method: 'POST' }); } catch (err) { console.error(err); }
     }
     setNotifOpen(false);
-    if (projectId != null) {
+    if (projectId != null && taskId != null) {
+      navigate(`/project/${projectId}?task=${taskId}`);
+    } else if (projectId != null) {
       navigate(`/project/${projectId}`);
     }
   };
