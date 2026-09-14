@@ -231,6 +231,8 @@ export default function DashboardPage() {
 
   const { summary } = data;
 
+  const time = data.time;
+
   return (
     <div className="dashboard">
       <div className="page-header">
@@ -326,6 +328,69 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {time && (
+        <div className="time-tracking">
+          <h2 className="panel-title">Time Tracking</h2>
+
+          <div className="time-stats">
+            <div className="time-stat-chip">
+              <span className="time-stat-value">{time.totalHoursLogged}</span>
+              <span className="time-stat-label">Total Hours</span>
+            </div>
+            <div className="time-stat-chip">
+              <span className="time-stat-value">{time.hoursThisWeek}</span>
+              <span className="time-stat-label">This Week</span>
+            </div>
+            <div className="time-stat-chip">
+              <span className="time-stat-value">{time.hoursThisMonth}</span>
+              <span className="time-stat-label">This Month</span>
+            </div>
+          </div>
+
+          <div className="time-lists">
+            <div className="panel">
+              <h3 className="panel-title">By Project</h3>
+              <div className="time-project-list">
+                {time.timeByProject.length === 0 ? (
+                  <div className="empty">No time logged</div>
+                ) : (
+                  time.timeByProject.map(p => (
+                    <div key={p.project_id} className="time-project-row">
+                      <div className="time-project-head">
+                        <span className="time-project-name">{p.name}</span>
+                        <span className="time-project-hours">{p.hours}h</span>
+                      </div>
+                      <div className="time-project-bar">
+                        <div
+                          className="time-project-fill"
+                          style={{ width: `${time.totalHoursLogged > 0 ? (p.hours / time.totalHoursLogged) * 100 : 0}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="panel">
+              <h3 className="panel-title">By User</h3>
+              <div className="time-user-list">
+                {time.timeByUser.length === 0 ? (
+                  <div className="empty">No time logged</div>
+                ) : (
+                  time.timeByUser.map(u => (
+                    <div key={u.user_id} className="time-user-row">
+                      <span className="time-user-name">{u.name}</span>
+                      <span className="time-user-hours">{u.hours}h</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

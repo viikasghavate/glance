@@ -78,7 +78,67 @@ router.get('/', (req, res) => {
     ORDER BY day ASC
   `).all();
 
+  const roundHours = minutes => Math.round((minutes / 60) * 10) / 10;
+
+  const totalMinutes = db.prepare(`
+    SELECT COALESCE(SUM(e.minutes), 0) as total
+    FROM time_entries e
+    JOIN tasks t ON t.id = e.task_id
+    WHERE t.deleted_at IS NULL
+  `).get().total;
+
+  const weekMinutes = db.prepare(`
+    SELECT COALESCE(SUM(e.minutes), 0) as total
+    FROM time_entries e
+    JOIN tasks t ON t.id = e.task_id
+    WHERE t.deleted_at IS NULL AND e.created_at >= datetime('now', '-7 days')
+  `).get().total;
+
+  const monthMinutes = db.prepare(`
+    SELECT COALESCE(SUM(e.minutes), 0) as total
+    FROM time_entries e
+    JOIN tasks t ON t.id = e.task_id
+    WHERE t.deleted_at IS NULL AND e.created_at >= datetime('now', '-30 days')
+  `).get().total;
+
+  const timeByProject = db.prepare(`
+    SELECT p.id as project_id, p.name, COALESCE(SUM(e.minutes), 0) as minutes
+    FROM time_entries e
+    JOIN tasks t ON t.id = e.task_id
+    LEFT JOIN projects p ON p.id = t.project_id
+    WHERE t.deleted_at IS NULL
+    GROUP BY p.id
+    ORDER BY minutes DESC
+    LIMIT 6
+  `).all().map(r => ({
+    project_id: r.project_id,
+    name: r.name,
+    hours: roundHours(r.minutes)
+  }));
+
+  const timeByUser = db.prepare(`
+    SELECT u.id as user_id, u.name, COALESCE(SUM(e.minutes), 0) as minutes
+    FROM time_entries e
+    JOIN tasks t ON t.id = e.task_id
+    LEFT JOIN users u ON u.id = e.user_id
+    WHERE t.deleted_at IS NULL
+    GROUP BY u.id
+    ORDER BY minutes DESC
+    LIMIT 6
+  `).all().map(r => ({
+    user_id: r.user_id,
+    name: r.name,
+    hours: roundHours(r.minutes)
+  }));
+
   res.json({
+    time: {
+      totalHoursLogged: roundHours(totalMinutes),
+      hoursThisWeek: roundHours(weekMinutes),
+      hoursThisMonth: roundHours(monthMinutes),
+      timeByProject,
+      timeByUser
+    },
     summary: {
       projects,
       tasks,
