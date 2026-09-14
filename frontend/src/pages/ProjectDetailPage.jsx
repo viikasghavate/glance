@@ -91,6 +91,31 @@ export default function ProjectDetailPage() {
     fetchData();
   };
 
+  const handleExportCsv = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/projects/${id}/export`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        alert('Export failed.');
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tasks-${id}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      alert('Export failed.');
+    }
+  };
+
   const handleTaskUpdate = async (taskId, data) => {
     const updated = await apiFetch(`/tasks/${taskId}`, { method: 'PATCH', body: JSON.stringify(data) });
     setTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
@@ -126,6 +151,9 @@ export default function ProjectDetailPage() {
           </div>
         </div>
         <div className="view-actions">
+          <button className="btn-ghost" onClick={handleExportCsv}>
+            Export CSV
+          </button>
           {!hasRole('viewer') && (
             <button className="btn-primary" onClick={() => { setEditingTask(null); setShowTaskModal(true); }}>
               + New Task

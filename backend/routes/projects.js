@@ -2,7 +2,7 @@ import { Router } from 'express';
 import db from '../db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { logActivity } from '../services/activity.js';
-import { syncProjectTags, getProjectTags } from '../services/tagging.js';
+import { syncProjectTags, getProjectTags, getTaskLabels } from '../services/tagging.js';
 
 const router = Router();
 
@@ -183,6 +183,52 @@ router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
   updated.tagList = getProjectTags(id);
   logActivity(req.user.id, 'project.updated', 'project', updated.id, updated.name);
   res.json(updated);
+});
+
+function csvEscape(value) {
+  if (value == null) return '';
+  return '"' + String(value).replace(/"/g, '""') + '"';
+}
+
+router.get('/:id/export', (req, res) => {
+  const { id } = req.params;
+  const project = db.prepare('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+
+  const tasks = db.prepare(`
+    SELECT t.*, u.name as assignee_name,
+           s.name as sprint_name, m.name as milestone_name
+    FROM tasks t
+    LEFT JOIN users u ON t.assignee_id = u.id
+    LEFT JOIN sprints s ON t.sprint_id = s.id
+    LEFT JOIN milestones m ON t.milestone_id = m.id
+    WHERE t.project_id = ? AND t.deleted_at IS NULL AND t.archived = 0
+    ORDER BY t.position ASC, t.created_at DESC
+  `).all(id);
+
+  const headers = ['id', 'title', 'status', 'priority', 'assignee', 'labels', 'sprint', 'milestone', 'start_date', 'due_date', 'estimated_hours', 'time_spent', 'description'];
+
+  const rows = tasks.map(t => [
+    t.id,
+    t.title,
+    t.status,
+    t.priority,
+    t.assignee_name,
+    getTaskLabels(t.id).join('; '),
+    t.sprint_name,
+    t.milestone_name,
+    t.start_date,
+    t.due_date,
+    t.estimated_hours,
+    t.time_spent,
+    t.description
+  ]);
+
+  const csv = [headers, ...rows].map(row => row.map(csvEscape).join(',')).join('\r\n');
+
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="tasks-${id}.csv"`);
+  res.send(csv);
 });
 
 router.delete('/:id', requireRole('admin', 'member'), (req, res) => {
