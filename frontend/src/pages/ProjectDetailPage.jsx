@@ -124,6 +124,11 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleDuplicated = async (updated) => {
+    setSelectedTask(null);
+    fetchData();
+  };
+
   if (loading) return <div className="loading"><div className="spinner" /></div>;
   if (!project) return null;
 
@@ -230,6 +235,7 @@ export default function ProjectDetailPage() {
           onClose={() => setSelectedTask(null)}
           onUpdate={(data) => handleTaskUpdate(selectedTask.id, data)}
           onDelete={() => handleTaskDelete(selectedTask.id)}
+          onDuplicated={handleDuplicated}
           apiFetch={apiFetch}
           readOnly={hasRole('viewer')}
         />

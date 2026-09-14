@@ -282,6 +282,71 @@ router.post('/project/:projectId', requireRole('admin', 'member'), (req, res) =>
   res.status(201).json(taskWithLabels);
 });
 
+router.post('/:id/duplicate', requireRole('admin', 'member'), (req, res) => {
+  const { id } = req.params;
+  const source = db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!source) return res.status(404).json({ error: 'Task not found' });
+
+  let sprintId = source.sprint_id;
+  if (sprintId != null) {
+    const sprint = db.prepare('SELECT project_id FROM sprints WHERE id = ?').get(sprintId);
+    if (!sprint || sprint.project_id !== source.project_id) sprintId = null;
+  }
+
+  let milestoneId = source.milestone_id;
+  if (milestoneId != null) {
+    const milestone = db.prepare('SELECT project_id FROM milestones WHERE id = ?').get(milestoneId);
+    if (!milestone || milestone.project_id !== source.project_id) milestoneId = null;
+  }
+
+  let parentId = source.parent_id;
+  if (parentId != null) {
+    const parent = db.prepare('SELECT project_id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(parentId);
+    if (!parent || parent.project_id !== source.project_id) parentId = null;
+  }
+
+  const maxPos = db.prepare(
+    'SELECT COALESCE(MAX(position), -1) as maxPos FROM tasks WHERE project_id = ? AND status = ?'
+  ).get(source.project_id, 'todo');
+
+  const result = db.prepare(`
+    INSERT INTO tasks (project_id, title, description, status, priority, due_date, assignee_id, position, labels, start_date, estimated_hours, time_spent, reporter_id, archived, parent_id, recurrence, recurrence_end, sprint_id, milestone_id, start_time, end_time)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    source.project_id,
+    source.title,
+    source.description || '',
+    'todo',
+    source.priority || 'medium',
+    source.due_date || null,
+    source.assignee_id || null,
+    maxPos.maxPos + 1,
+    source.labels || '',
+    source.start_date || null,
+    source.estimated_hours != null ? source.estimated_hours : null,
+    0,
+    source.reporter_id || null,
+    0,
+    parentId || null,
+    source.recurrence || 'none',
+    source.recurrence_end || null,
+    sprintId || null,
+    milestoneId || null,
+    source.start_time || null,
+    source.end_time || null
+  );
+
+  const newId = result.lastInsertRowid;
+
+  syncTaskLabels(newId, source.labels || '');
+
+  const newTask = getTaskWithDeps(newId);
+
+  logActivity(req.user.id, 'task.duplicated', 'task', newId, newTask.title, { from: source.id });
+
+  res.status(201).json(newTask);
+});
+
 router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
   const { id } = req.params;
   const task = db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);

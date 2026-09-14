@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import './TaskDetailModal.css';
 
-export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate, onDelete, apiFetch, readOnly }) {
+export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate, onDelete, onDuplicated, apiFetch, readOnly }) {
   const { user } = useAuth();
   const [watchers, setWatchers] = useState([]);
   const [loadingWatchers, setLoadingWatchers] = useState(false);
@@ -138,6 +138,15 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
         await apiFetch(`/tasks/${task.id}/watchers`, { method: 'POST' });
       }
       await fetchWatchers();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDuplicate = async () => {
+    try {
+      const created = await apiFetch(`/tasks/${task.id}/duplicate`, { method: 'POST' });
+      onDuplicated && onDuplicated(created);
     } catch (err) {
       console.error(err);
     }
@@ -385,6 +394,9 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
             <button className="btn-ghost btn-sm" onClick={handleToggleWatch} disabled={loadingWatchers}>
               {loadingWatchers ? '...' : isWatching ? 'Unwatch' : 'Watch'}
             </button>
+          )}
+          {!readOnly && (
+            <button className="btn-ghost btn-sm" onClick={handleDuplicate}>⧉ Duplicate</button>
           )}
           <button className="btn-ghost btn-sm" onClick={onClose}>&times;</button>
         </div>
