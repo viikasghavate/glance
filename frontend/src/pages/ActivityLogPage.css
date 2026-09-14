@@ -1,0 +1,101 @@
+.activity-log {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.activity-filters {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.activity-filter-select {
+  min-width: 180px;
+}
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.activity-row {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.activity-row:hover {
+  border-color: var(--cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+.activity-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.activity-row-text {
+  font-size: 0.875rem;
+  color: var(--text);
+}
+
+.activity-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex-wrap: wrap;
+}
+
+.activity-row-user {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.activity-row-time {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.activity-row-details {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: var(--mono, monospace);
+  padding-top: 0.125rem;
+}
+
+.activity-badge {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.activity-badge-task { background: rgba(0, 229, 255, 0.12); color: var(--cyan); }
+.activity-badge-comment { background: rgba(139, 92, 246, 0.15); color: var(--violet); }
+.activity-badge-project { background: rgba(0, 255, 157, 0.12); color: var(--success); }
+.activity-badge-user { background: rgba(255, 176, 32, 0.15); color: var(--warning); }
+.activity-badge-skill { background: rgba(0, 229, 255, 0.12); color: var(--cyan); }
+.activity-badge-milestone { background: rgba(139, 92, 246, 0.15); color: var(--violet); }
+.activity-badge-sprint { background: rgba(255, 176, 32, 0.15); color: var(--warning); }
+.activity-badge-portfolio { background: rgba(0, 255, 157, 0.12); color: var(--success); }
+.activity-badge-program { background: rgba(0, 229, 255, 0.12); color: var(--cyan); }
+.activity-badge-auth { background: rgba(125, 139, 163, 0.15); color: var(--text-muted); }
+.activity-badge-ai { background: rgba(255, 77, 109, 0.12); color: var(--danger); }
+.activity-badge-unknown { background: rgba(125, 139, 163, 0.15); color: var(--text-muted); }
+
+.activity-empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.activity-load-more {
+  display: flex;
+  justify-content: center;
+  padding-top: 0.5rem;
+}

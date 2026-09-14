@@ -112,6 +112,12 @@ const IconSkills = () => (
   </svg>
 );
 
+const IconActivity = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+  </svg>
+);
+
 function ProjectNavGroups({ projects, portfolios, programs, currentProjectId }) {
   const ungrouped = [];
 
@@ -344,6 +350,9 @@ export default function Layout() {
           )}
           <Link to="/skills" className={`icon-rail-btn ${location.pathname === '/skills' ? 'active' : ''}`} title="Skills">
             <IconSkills />
+          </Link>
+          <Link to="/activity" className={`icon-rail-btn ${location.pathname === '/activity' ? 'active' : ''}`} title="Activity">
+            <IconActivity />
           </Link>
           <div className="icon-rail-spacer" />
           <Link to="/settings" className={`icon-rail-btn ${location.pathname === '/settings' ? 'active' : ''}`} title="Settings">

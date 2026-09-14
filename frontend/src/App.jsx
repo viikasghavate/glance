@@ -9,6 +9,7 @@ import PortfolioPage from './pages/PortfolioPage';
 import UserManagementPage from './pages/UserManagementPage';
 import SettingsPage from './pages/SettingsPage';
 import SkillsPage from './pages/SkillsPage';
+import ActivityLogPage from './pages/ActivityLogPage';
 import Layout from './components/Layout';
 
 function ProtectedRoute({ children }) {
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="project/:id" element={<ProjectDetailPage />} />
         <Route path="users" element={<UserManagementPage />} />
         <Route path="skills" element={<SkillsPage />} />
+        <Route path="activity" element={<ActivityLogPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
