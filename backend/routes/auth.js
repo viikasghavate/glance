@@ -2,6 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import db from '../db.js';
+import { logActivity } from '../services/activity.js';
 import { requireAuth, JWT_SECRET } from '../middleware/auth.js';
 
 const router = Router();
@@ -23,6 +24,7 @@ router.post('/register', (req, res) => {
   const hash = bcrypt.hashSync(password, 10);
   const result = db.prepare('INSERT INTO users (email, password_hash, name, role) VALUES (?, ?, ?, ?)').run(email, hash, name, role);
   const user = db.prepare('SELECT id, email, name, role, created_at FROM users WHERE id = ?').get(result.lastInsertRowid);
+  logActivity(user.id, 'user.registered', 'user', user.id, user.email, null);
 
   const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
   res.status(201).json({ token, user });
@@ -36,10 +38,13 @@ router.post('/login', (req, res) => {
 
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
+    const knownId = user ? user.id : null;
+    logActivity(knownId, 'user.login.failed', 'user', knownId, email, { reason: 'invalid_credentials' });
     return res.status(401).json({ error: 'Invalid credentials' });
   }
 
   db.prepare("UPDATE users SET last_login_at = datetime('now') WHERE id = ?").run(user.id);
+  logActivity(user.id, 'user.login', 'user', user.id, user.email, null);
 
   const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
   res.json({
