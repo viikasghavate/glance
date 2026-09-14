@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useUI } from '../context/UIContext';
 import KanbanBoard from '../components/KanbanBoard';
@@ -21,6 +21,7 @@ const statusLabels = {
 export default function ProjectDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { apiFetch, hasRole } = useAuth();
   const { view, setBreadcrumb, projects } = useUI();
   const [project, setProject] = useState(null);
@@ -57,6 +58,17 @@ export default function ProjectDetailPage() {
   };
 
   useEffect(() => { fetchData(); }, [id]);
+
+  useEffect(() => {
+    if (loading) return;
+    const taskId = searchParams.get('task');
+    if (!taskId) return;
+    const found = tasks.find(t => String(t.id) === String(taskId));
+    if (found) {
+      setSelectedTask(found);
+    }
+    setSearchParams({}, { replace: true });
+  }, [searchParams, tasks, loading, setSearchParams]);
 
   useEffect(() => {
     return () => setBreadcrumb('');

@@ -458,7 +458,7 @@ export default function Layout() {
                         <div className="search-group">
                           <div className="search-group-label">Tasks</div>
                           {searchResults.tasks.map(t => (
-                            <button key={t.id} className="search-item" onClick={() => handleSearchSelect(`/project/${t.project_id}`)}>
+                            <button key={t.id} className="search-item" onClick={() => handleSearchSelect(`/project/${t.project_id}?task=${t.id}`)}>
                               <span className="search-item-text">{t.title}</span>
                               <span className="search-item-sub">{t.project_name}</span>
                             </button>
@@ -469,7 +469,7 @@ export default function Layout() {
                         <div className="search-group">
                           <div className="search-group-label">Comments</div>
                           {searchResults.comments.map(c => (
-                            <button key={c.id} className="search-item" onClick={() => handleSearchSelect(`/project/${c.project_id}`)}>
+                            <button key={c.id} className="search-item" onClick={() => handleSearchSelect(`/project/${c.project_id}?task=${c.task_id}`)}>
                               <span className="search-item-text">{c.body}</span>
                               <span className="search-item-sub">{c.task_title}</span>
                             </button>
