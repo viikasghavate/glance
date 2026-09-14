@@ -6,6 +6,7 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
   const [filterStatus, setFilterStatus] = useState('');
   const [filterPriority, setFilterPriority] = useState('');
   const [filterAssignee, setFilterAssignee] = useState('');
+  const [filterLabel, setFilterLabel] = useState('');
   const [collapsed, setCollapsed] = useState({});
   const [dragOverId, setDragOverId] = useState(null);
   const [sortBy, setSortBy] = useState('');
@@ -87,6 +88,7 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
     if (filterStatus && t.status !== filterStatus) return false;
     if (filterPriority && t.priority !== filterPriority) return false;
     if (filterAssignee && String(t.assignee_id) !== filterAssignee) return false;
+    if (filterLabel && !(t.labels ? t.labels.split(',').map(l => l.trim().toLowerCase()) : []).includes(filterLabel.toLowerCase())) return false;
     return true;
   };
 
@@ -108,7 +110,20 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
     return result;
   };
 
-  const filtered = useMemo(() => flattenTree(tree), [tree, filterStatus, filterPriority, filterAssignee, collapsed]);
+  const filtered = useMemo(() => flattenTree(tree), [tree, filterStatus, filterPriority, filterAssignee, filterLabel, collapsed]);
+
+  const distinctLabels = useMemo(() => {
+    const set = new Set();
+    tasks.forEach(t => {
+      if (t.labels) {
+        t.labels.split(',').forEach(l => {
+          const v = l.trim();
+          if (v) set.add(v);
+        });
+      }
+    });
+    return [...set].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  }, [tasks]);
 
   const statusLabel = (s) => {
     const map = { todo: 'To Do', in_progress: 'In Progress', done: 'Done' };
@@ -161,6 +176,12 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
           <option value="">All Assignees</option>
           {users.map(u => (
             <option key={u.id} value={u.id}>{u.name}</option>
+          ))}
+        </select>
+        <select value={filterLabel} onChange={e => setFilterLabel(e.target.value)}>
+          <option value="">All Labels</option>
+          {distinctLabels.map(l => (
+            <option key={l} value={l}>{l}</option>
           ))}
         </select>
         <select value={sortBy} onChange={e => setSortBy(e.target.value)}>

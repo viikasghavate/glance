@@ -11,6 +11,7 @@ const COLUMNS = [
 export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEditTask, readOnly }) {
   const [dragOverCol, setDragOverCol] = useState(null);
   const [collapsed, setCollapsed] = useState({});
+  const [filterLabel, setFilterLabel] = useState('');
 
   const toggleCollapse = (id) => {
     setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
@@ -43,8 +44,24 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
 
   const getTasks = (status) => {
     const flat = flattenTree(tree);
-    return flat.filter(t => t.status === status).sort((a, b) => a.position - b.position);
+    return flat
+      .filter(t => t.status === status)
+      .filter(t => !filterLabel || (t.labels ? t.labels.split(',').map(l => l.trim().toLowerCase()) : []).includes(filterLabel.toLowerCase()))
+      .sort((a, b) => a.position - b.position);
   };
+
+  const distinctLabels = useMemo(() => {
+    const set = new Set();
+    tasks.forEach(t => {
+      if (t.labels) {
+        t.labels.split(',').forEach(l => {
+          const v = l.trim();
+          if (v) set.add(v);
+        });
+      }
+    });
+    return [...set].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  }, [tasks]);
 
   const handleDragStart = (e, task) => {
     e.dataTransfer.setData('text/plain', JSON.stringify({ taskId: task.id, status: task.status, position: task.position }));
@@ -87,6 +104,14 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
 
   return (
     <div className="kanban">
+      <div className="kanban-filters">
+        <select value={filterLabel} onChange={e => setFilterLabel(e.target.value)}>
+          <option value="">All Labels</option>
+          {distinctLabels.map(l => (
+            <option key={l} value={l}>{l}</option>
+          ))}
+        </select>
+      </div>
       {COLUMNS.map(col => {
         const colTasks = getTasks(col.key);
         return (
