@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useUI } from '../context/UIContext';
@@ -18,9 +18,29 @@ export default function ProjectListPage() {
     openNewProjectModal, openEditProjectModal
   } = useUI();
 
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
   useEffect(() => {
     refreshProjects();
   }, [refreshProjects]);
+
+  const filteredProjects = projects.filter(p => {
+    const q = search.trim().toLowerCase();
+    const matchesSearch = !q ||
+      (p.name || '').toLowerCase().includes(q) ||
+      (p.owner_name || '').toLowerCase().includes(q) ||
+      (p.description || '').toLowerCase().includes(q);
+
+    let matchesStatus = true;
+    if (statusFilter === 'archived') {
+      matchesStatus = !!p.archived;
+    } else if (statusFilter !== 'all') {
+      matchesStatus = p.status === statusFilter;
+    }
+
+    return matchesSearch && matchesStatus;
+  });
 
   const handleDelete = async (project) => {
     if (!confirm(`Delete project "${project.name}"? This will also delete all tasks and comments.`)) return;
@@ -49,11 +69,34 @@ export default function ProjectListPage() {
         )}
       </div>
 
+      <div className="project-filters">
+        <input
+          type="text"
+          className="project-search"
+          placeholder="Search by name, owner, or description"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        <select
+          className="project-status-filter"
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+        >
+          <option value="all">All</option>
+          <option value="active">Active</option>
+          <option value="on_hold">On Hold</option>
+          <option value="completed">Completed</option>
+          <option value="archived">Archived</option>
+        </select>
+      </div>
+
       {projects.length === 0 ? (
         <div className="empty">No projects yet. Create your first project to get started.</div>
+      ) : filteredProjects.length === 0 ? (
+        <div className="empty">No projects match your filters.</div>
       ) : (
         <div className="project-grid">
-          {projects.map(p => (
+          {filteredProjects.map(p => (
             <div key={p.id} className={`project-card ${p.archived ? 'archived' : ''}`}>
               <div className="project-card-bar" style={{ background: p.color }} />
               <div className="project-card-body">
