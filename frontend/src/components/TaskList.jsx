@@ -7,6 +7,8 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
   const [filterPriority, setFilterPriority] = useState('');
   const [filterAssignee, setFilterAssignee] = useState('');
   const [filterLabel, setFilterLabel] = useState('');
+  const [filterSprint, setFilterSprint] = useState('');
+  const [filterMilestone, setFilterMilestone] = useState('');
   const [collapsed, setCollapsed] = useState({});
   const [dragOverId, setDragOverId] = useState(null);
   const [sortBy, setSortBy] = useState('');
@@ -89,6 +91,8 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
     if (filterPriority && t.priority !== filterPriority) return false;
     if (filterAssignee && String(t.assignee_id) !== filterAssignee) return false;
     if (filterLabel && !(t.labels ? t.labels.split(',').map(l => l.trim().toLowerCase()) : []).includes(filterLabel.toLowerCase())) return false;
+    if (filterSprint && t.sprint_name !== filterSprint) return false;
+    if (filterMilestone && t.milestone_name !== filterMilestone) return false;
     return true;
   };
 
@@ -110,7 +114,7 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
     return result;
   };
 
-  const filtered = useMemo(() => flattenTree(tree), [tree, filterStatus, filterPriority, filterAssignee, filterLabel, collapsed]);
+  const filtered = useMemo(() => flattenTree(tree), [tree, filterStatus, filterPriority, filterAssignee, filterLabel, filterSprint, filterMilestone, collapsed]);
 
   const distinctLabels = useMemo(() => {
     const set = new Set();
@@ -122,6 +126,18 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
         });
       }
     });
+    return [...set].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  }, [tasks]);
+
+  const distinctSprints = useMemo(() => {
+    const set = new Set();
+    tasks.forEach(t => { if (t.sprint_name) set.add(t.sprint_name); });
+    return [...set].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  }, [tasks]);
+
+  const distinctMilestones = useMemo(() => {
+    const set = new Set();
+    tasks.forEach(t => { if (t.milestone_name) set.add(t.milestone_name); });
     return [...set].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
   }, [tasks]);
 
@@ -182,6 +198,18 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
           <option value="">All Labels</option>
           {distinctLabels.map(l => (
             <option key={l} value={l}>{l}</option>
+          ))}
+        </select>
+        <select value={filterSprint} onChange={e => setFilterSprint(e.target.value)}>
+          <option value="">All Sprints</option>
+          {distinctSprints.map(s => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+        <select value={filterMilestone} onChange={e => setFilterMilestone(e.target.value)}>
+          <option value="">All Milestones</option>
+          {distinctMilestones.map(m => (
+            <option key={m} value={m}>{m}</option>
           ))}
         </select>
         <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
