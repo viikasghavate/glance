@@ -47,4 +47,21 @@ router.post('/task/:taskId', requireRole('admin', 'member'), (req, res) => {
   res.status(201).json(comment);
 });
 
+router.delete('/:id', requireRole('admin', 'member'), (req, res) => {
+  const { id } = req.params;
+  const comment = db.prepare(`
+    SELECT c.*, t.title as task_title
+    FROM comments c
+    LEFT JOIN tasks t ON t.id = c.task_id
+    WHERE c.id = ?
+  `).get(id);
+  if (!comment) return res.status(404).json({ error: 'Comment not found' });
+
+  db.prepare('DELETE FROM comments WHERE id = ?').run(id);
+
+  logActivity(req.user.id, 'comment.deleted', 'comment', comment.id, comment.task_title, { task_id: comment.task_id });
+
+  res.json({ success: true });
+});
+
 export default router;

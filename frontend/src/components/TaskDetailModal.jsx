@@ -296,6 +296,16 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
     }
   };
 
+  const handleDeleteComment = async (c) => {
+    if (!window.confirm(`Delete comment by ${c.user_name}?`)) return;
+    try {
+      await apiFetch(`/comments/${c.id}`, { method: 'DELETE' });
+      setComments(prev => prev.filter(x => x.id !== c.id));
+    } catch (err) {
+      alert(err.message || 'Failed');
+    }
+  };
+
   const handleParentChange = (e) => {
     const val = e.target.value;
     setParentId(val);
@@ -613,6 +623,9 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
                   <div className="comment-header">
                     <span className="comment-author">{c.user_name}</span>
                     <span className="comment-date">{new Date(c.created_at).toLocaleString()}</span>
+                    {!readOnly && (
+                      <button className="btn-ghost btn-sm" onClick={() => handleDeleteComment(c)} title="Delete">&times;</button>
+                    )}
                   </div>
                   <p className="comment-body">{c.body}</p>
                 </div>
