@@ -49,6 +49,32 @@ const IconSearch = () => (
   </svg>
 );
 
+const IconBell = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+  </svg>
+);
+
+function relativeTime(sqliteUtc) {
+  if (!sqliteUtc) return '';
+  const ts = sqliteUtc.replace(' ', 'T') + 'Z';
+  const date = new Date(ts);
+  if (isNaN(date.getTime())) return '';
+  const diff = Date.now() - date.getTime();
+  const sec = Math.floor(diff / 1000);
+  if (sec < 60) return 'now';
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h`;
+  const day = Math.floor(hr / 24);
+  if (day < 7) return `${day}d`;
+  const wk = Math.floor(day / 7);
+  if (wk < 52) return `${wk}w`;
+  return `${Math.floor(wk / 52)}y`;
+}
+
 const IconChevronLeft = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="15 18 9 12 15 6" />
@@ -165,6 +191,52 @@ export default function Layout() {
   const searchRef = useRef(null);
   const debounceRef = useRef(null);
 
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef(null);
+
+  useEffect(() => {
+    let active = true;
+    apiFetch('/notifications/unread-count')
+      .then(d => { if (active) setUnreadCount(d.count || 0); })
+      .catch(() => {});
+    apiFetch('/notifications')
+      .then(list => { if (active) setNotifications(Array.isArray(list) ? list.slice(0, 20) : []); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [apiFetch]);
+
+  const toggleNotifications = async () => {
+    if (notifOpen) {
+      setNotifOpen(false);
+      return;
+    }
+    setNotifOpen(true);
+    try {
+      await apiFetch('/notifications/read-all', { method: 'POST' });
+      setUnreadCount(0);
+      setNotifications(prev => prev.map(n => ({ ...n, read: 1 })));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleNotificationClick = async (n) => {
+    let payload = n.payload;
+    if (typeof payload === 'string') {
+      try { payload = JSON.parse(payload); } catch { payload = null; }
+    }
+    const projectId = payload && payload.project_id;
+    if (!n.read) {
+      try { await apiFetch(`/notifications/${n.id}/read`, { method: 'POST' }); } catch (err) { console.error(err); }
+    }
+    setNotifOpen(false);
+    if (projectId != null) {
+      navigate(`/project/${projectId}`);
+    }
+  };
+
   const isHome = location.pathname === '/';
   const isProjectPage = location.pathname.startsWith('/project/');
   const currentProjectId = isProjectPage ? location.pathname.split('/')[2] : null;
@@ -223,9 +295,15 @@ export default function Layout() {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
         setSearchOpen(false);
       }
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setNotifOpen(false);
+      }
     };
     const handleKey = (e) => {
-      if (e.key === 'Escape') setSearchOpen(false);
+      if (e.key === 'Escape') {
+        setSearchOpen(false);
+        setNotifOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleKey);
@@ -420,6 +498,38 @@ export default function Layout() {
               <span className="top-bar-clock-time">
                 {now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false })}
               </span>
+            </div>
+            <div className="notif-menu" ref={notifRef}>
+              <button
+                className="notif-bell"
+                onClick={toggleNotifications}
+                title="Notifications"
+              >
+                <IconBell />
+                {unreadCount > 0 && <span className="notif-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>}
+              </button>
+              {notifOpen && (
+                <div className="notif-dropdown">
+                  {notifications.length === 0 ? (
+                    <div className="notif-empty">No notifications</div>
+                  ) : (
+                    notifications.map(n => (
+                      <button
+                        key={n.id}
+                        className={`notif-item ${!n.read ? 'unread' : ''}`}
+                        onClick={() => handleNotificationClick(n)}
+                      >
+                        <span className="notif-dot" />
+                        <span className="notif-content">
+                          <span className="notif-title">{n.title}</span>
+                          <span className="notif-body">{n.body}</span>
+                        </span>
+                        <span className="notif-time">{relativeTime(n.created_at)}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
             <div className="user-menu">
               <button
