@@ -14,6 +14,11 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
   const [attachments, setAttachments] = useState([]);
   const [loadingAttachments, setLoadingAttachments] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [timeEntries, setTimeEntries] = useState([]);
+  const [loadingTime, setLoadingTime] = useState(true);
+  const [minutes, setMinutes] = useState('');
+  const [note, setNote] = useState('');
+  const [submittingTime, setSubmittingTime] = useState(false);
 
   const parentTask = tasks?.find(t => t.id === task.parent_id) || null;
   const subtasks = tasks?.filter(t => t.parent_id === task.id) || [];
@@ -91,6 +96,55 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
   };
 
   useEffect(() => { fetchAttachments(); }, [task.id]);
+
+  const fetchTimeEntries = async () => {
+    try {
+      const data = await apiFetch(`/tasks/${task.id}/time-entries`);
+      setTimeEntries(data);
+    } catch (err) {
+      alert(err.message || 'Failed');
+    } finally {
+      setLoadingTime(false);
+    }
+  };
+
+  useEffect(() => { fetchTimeEntries(); }, [task.id]);
+
+  const handleAddTimeEntry = async (e) => {
+    e.preventDefault();
+    const m = Number(minutes);
+    if (isNaN(m) || m < 0.25) return;
+    setSubmittingTime(true);
+    try {
+      await apiFetch(`/tasks/${task.id}/time-entries`, {
+        method: 'POST',
+        body: JSON.stringify({ minutes: m, note: note.trim() || undefined })
+      });
+      setMinutes('');
+      setNote('');
+      await fetchTimeEntries();
+    } catch (err) {
+      alert(err.message || 'Failed');
+    } finally {
+      setSubmittingTime(false);
+    }
+  };
+
+  const handleDeleteTimeEntry = async (entry) => {
+    if (!window.confirm(`Delete time entry (${formatMinutes(entry.minutes)}) by ${entry.user_name}?`)) return;
+    try {
+      await apiFetch(`/time/${entry.id}`, { method: 'DELETE' });
+      await fetchTimeEntries();
+    } catch (err) {
+      alert(err.message || 'Failed');
+    }
+  };
+
+  const formatMinutes = (m) => {
+    if (m == null) return '';
+    if (m < 60) return `${m} min`;
+    return `${(m / 60).toFixed(1)} h`;
+  };
 
   const handleAddChecklistItem = async (e) => {
     e.preventDefault();
@@ -275,6 +329,9 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
     const map = { todo: 'To Do', in_progress: 'In Progress', done: 'Done' };
     return map[s] || s;
   };
+
+  const totalMinutes = timeEntries.reduce((sum, t) => sum + (Number(t.minutes) || 0), 0);
+  const totalHours = totalMinutes / 60;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -491,6 +548,55 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
                 {uploading ? 'Uploading...' : 'Upload file'}
               </label>
             </div>
+          )}
+        </div>
+
+        <div className="time-log-section">
+          <h4>Time Log — {timeEntries.length} {timeEntries.length === 1 ? 'entry' : 'entries'} · {totalHours.toFixed(1)}h logged</h4>
+          {loadingTime ? (
+            <div className="loading"><div className="spinner" /></div>
+          ) : timeEntries.length === 0 ? (
+            <p className="empty">No time logged yet.</p>
+          ) : (
+            <div className="time-entries-list">
+              {timeEntries.map(entry => (
+                <div key={entry.id} className="time-entry">
+                  <span className="time-entry-name">{entry.user_name}</span>
+                  <span className="time-entry-minutes">{formatMinutes(entry.minutes)}</span>
+                  {entry.note && <span className="time-entry-note">{entry.note}</span>}
+                  <span className="time-entry-date">{new Date(entry.created_at).toLocaleDateString()}</span>
+                  {!readOnly && (
+                    <button className="btn-ghost btn-sm" onClick={() => handleDeleteTimeEntry(entry)} title="Delete">&times;</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {!readOnly && (
+            <form onSubmit={handleAddTimeEntry} className="time-log-form">
+              <input
+                type="number"
+                min="0.25"
+                step="0.25"
+                value={minutes}
+                onChange={e => setMinutes(e.target.value)}
+                placeholder="Minutes"
+                required
+              />
+              <input
+                type="text"
+                value={note}
+                onChange={e => setNote(e.target.value)}
+                placeholder="Note (optional)"
+              />
+              <button
+                type="submit"
+                className="btn-primary btn-sm"
+                disabled={submittingTime || isNaN(Number(minutes)) || Number(minutes) < 0.25}
+              >
+                {submittingTime ? 'Logging...' : 'Log Time'}
+              </button>
+            </form>
           )}
         </div>
 
