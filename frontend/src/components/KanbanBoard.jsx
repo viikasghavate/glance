@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import './KanbanBoard.css';
+import { isOverdue } from './overdue';
 
 const COLUMNS = [
   { key: 'todo', label: 'To Do' },
@@ -105,7 +106,7 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
               {colTasks.map(task => (
                 <div
                   key={task.id}
-                  className={`kanban-card ${task.archived ? 'archived' : ''} ${task.depth > 0 ? 'subtask-card' : ''}`}
+                  className={`kanban-card ${task.archived ? 'archived' : ''} ${task.depth > 0 ? 'subtask-card' : ''} ${isOverdue(task.due_date, task.status) ? 'overdue' : ''}`}
                   draggable={!readOnly}
                   onDragStart={!readOnly ? (e) => handleDragStart(e, task) : undefined}
                   onDragOver={!readOnly ? handleTaskDragOver : undefined}
@@ -151,7 +152,12 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
                       <span className="assignee">{task.assignee_name}</span>
                     )}
                     {task.due_date && (
-                      <span className="due-date">{task.due_date}</span>
+                      <>
+                        <span className="due-date">{task.due_date}</span>
+                        {isOverdue(task.due_date, task.status) && (
+                          <span className="overdue-chip">⚠ Overdue</span>
+                        )}
+                      </>
                     )}
                     {task.estimated_hours != null && (
                       <span className="est-hours">{task.estimated_hours}h</span>

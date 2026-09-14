@@ -76,6 +76,24 @@
   opacity: 0.5;
 }
 
+.task-table-row.task-row.overdue {
+  background: rgba(255, 77, 109, 0.06);
+  border-left: 2px solid var(--danger);
+}
+
+.task-table-row.task-row.overdue:hover {
+  background: rgba(255, 77, 109, 0.09);
+}
+
+.task-row .due-date {
+  color: var(--text-muted);
+}
+
+.task-row.overdue .due-date {
+  color: var(--danger);
+  font-weight: 600;
+}
+
 .label-badge {
   font-size: 0.625rem;
   background: var(--bg-hover);

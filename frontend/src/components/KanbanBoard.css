@@ -111,6 +111,27 @@
   opacity: 0.5;
 }
 
+.kanban-card.overdue {
+  border-color: rgba(255, 77, 109, 0.35);
+  border-left: 2px solid var(--danger);
+  background: rgba(255, 77, 109, 0.06);
+}
+
+.kanban-card.overdue .due-date {
+  color: var(--danger);
+}
+
+.overdue-chip {
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--danger);
+  background: rgba(255, 77, 109, 0.12);
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  white-space: nowrap;
+  margin-left: 0.25rem;
+}
+
 .kanban-card-labels {
   display: flex;
   gap: 0.25rem;

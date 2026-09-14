@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import './TaskList.css';
+import { isOverdue } from './overdue';
 
 export default function TaskList({ tasks, users, onTaskClick, onStatusChange, onReorder, readOnly }) {
   const [filterStatus, setFilterStatus] = useState('');
@@ -132,7 +133,7 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
                 onDragOver={!readOnly ? (e) => handleDragOver(e, task) : undefined}
                 onDragLeave={!readOnly ? handleDragLeave : undefined}
                 onDrop={!readOnly ? (e) => handleDrop(e, task) : undefined}
-                className={`task-table-row task-row ${task.archived ? 'archived' : ''} ${task.depth > 0 ? 'subtask-row' : ''} ${dragOverId === task.id ? 'drag-over' : ''}`}
+                className={`task-table-row task-row ${task.archived ? 'archived' : ''} ${task.depth > 0 ? 'subtask-row' : ''} ${dragOverId === task.id ? 'drag-over' : ''} ${isOverdue(task.due_date, task.status) ? 'overdue' : ''}`}
               >
                 <div className="task-table-cell task-title-cell" style={{ paddingLeft: `${0.75 + task.depth * 1.5}rem` }}>
                   {task.hasChildren ? (
@@ -174,7 +175,11 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
                 </div>
                 <div className="task-table-cell"><span className={`badge badge-${task.priority}`}>{task.priority}</span></div>
                 <div className="task-table-cell">{task.assignee_name || '-'}</div>
-                <div className="task-table-cell date-cell">{task.due_date || '-'}</div>
+                <div className="task-table-cell date-cell">
+                  {task.due_date ? (
+                    <span className={isOverdue(task.due_date, task.status) ? 'due-date overdue' : 'due-date'}>{task.due_date}</span>
+                  ) : '-'}
+                </div>
                 <div className="task-table-cell date-cell">{task.estimated_hours != null ? `${task.estimated_hours}h` : '-'}</div>
                 <div className="task-table-cell date-cell">{task.time_spent != null ? `${task.time_spent}h` : '-'}</div>
               </div>
