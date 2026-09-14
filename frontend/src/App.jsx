@@ -10,6 +10,7 @@ import UserManagementPage from './pages/UserManagementPage';
 import SettingsPage from './pages/SettingsPage';
 import SkillsPage from './pages/SkillsPage';
 import ActivityLogPage from './pages/ActivityLogPage';
+import MyTasksPage from './pages/MyTasksPage';
 import Layout from './components/Layout';
 
 function ProtectedRoute({ children }) {
@@ -25,6 +26,7 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/" element={<ProtectedRoute><UIProvider><Layout /></UIProvider></ProtectedRoute>}>
         <Route index element={<DashboardPage />} />
+        <Route path="mytasks" element={<MyTasksPage />} />
         <Route path="projects" element={<ProjectListPage />} />
         <Route path="ports" element={<PortfolioPage />} />
         <Route path="project/:id" element={<ProjectDetailPage />} />

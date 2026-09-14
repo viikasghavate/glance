@@ -204,6 +204,32 @@ router.get('/project/:projectId', (req, res) => {
   res.json(result);
 });
 
+router.get('/mine', (req, res) => {
+  const tasks = db.prepare(`
+    SELECT t.*, p.name as project_name, u.name as assignee_name, u.email as assignee_email,
+           r.name as reporter_name, r.email as reporter_email,
+           s.name as sprint_name, m.name as milestone_name,
+           (SELECT COUNT(*) FROM tasks WHERE parent_id = t.id AND deleted_at IS NULL) as subtask_count
+    FROM tasks t
+    LEFT JOIN projects p ON t.project_id = p.id
+    LEFT JOIN users u ON t.assignee_id = u.id
+    LEFT JOIN users r ON t.reporter_id = r.id
+    LEFT JOIN sprints s ON t.sprint_id = s.id
+    LEFT JOIN milestones m ON t.milestone_id = m.id
+    WHERE t.assignee_id = ? AND t.deleted_at IS NULL
+    ORDER BY
+      CASE WHEN t.status = 'done' THEN 1 ELSE 0 END,
+      t.due_date IS NULL,
+      t.due_date ASC,
+      CASE t.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 WHEN 'low' THEN 2 ELSE 3 END,
+      t.title ASC
+  `).all(req.user.id);
+
+  const result = tasks.map(t => ({ ...t, ...getDependencies(t.id), labelList: getTaskLabels(t.id) }));
+
+  res.json(result);
+});
+
 router.post('/project/:projectId', requireRole('admin', 'member'), (req, res) => {
   const { projectId } = req.params;
   const project = db.prepare('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL').get(projectId);

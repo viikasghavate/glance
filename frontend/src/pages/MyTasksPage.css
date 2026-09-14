@@ -1,0 +1,53 @@
+.my-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.my-tasks-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(20, 26, 40, 0.5);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
+}
+
+.chip:hover {
+  color: var(--text);
+}
+
+.chip.active {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+.chip-count {
+  font-weight: 700;
+  color: inherit;
+}
+
+.chip-overdue.active {
+  border-color: var(--danger);
+  color: var(--danger);
+  box-shadow: var(--glow-danger);
+}
+
+.my-tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}

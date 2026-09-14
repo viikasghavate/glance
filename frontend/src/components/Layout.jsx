@@ -13,6 +13,13 @@ const IconHome = () => (
   </svg>
 );
 
+const IconMyTasks = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 11l3 3L22 4" />
+    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+  </svg>
+);
+
 const IconProjects = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
@@ -336,6 +343,9 @@ export default function Layout() {
         <nav className="icon-rail">
           <Link to="/" className={`icon-rail-btn ${isHome ? 'active' : ''}`} title="Dashboard">
             <IconDashboard />
+          </Link>
+          <Link to="/mytasks" className={`icon-rail-btn ${location.pathname === '/mytasks' ? 'active' : ''}`} title="My Tasks">
+            <IconMyTasks />
           </Link>
           <Link to="/projects" className={`icon-rail-btn ${location.pathname === '/projects' ? 'active' : ''}`} title="Projects">
             <IconProjects />
