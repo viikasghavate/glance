@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 import './TaskDetailModal.css';
 
 export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate, onDelete, apiFetch, readOnly }) {
+  const { user } = useAuth();
+  const [watchers, setWatchers] = useState([]);
+  const [loadingWatchers, setLoadingWatchers] = useState(false);
   const [comments, setComments] = useState([]);
   const [commentBody, setCommentBody] = useState('');
   const [loadingComments, setLoadingComments] = useState(true);
@@ -109,6 +113,35 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
   };
 
   useEffect(() => { fetchTimeEntries(); }, [task.id]);
+
+  const fetchWatchers = async () => {
+    setLoadingWatchers(true);
+    try {
+      const data = await apiFetch(`/tasks/${task.id}/watchers`);
+      setWatchers(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingWatchers(false);
+    }
+  };
+
+  useEffect(() => { fetchWatchers(); }, [task.id]);
+
+  const isWatching = watchers.some(w => w.id === user?.id);
+
+  const handleToggleWatch = async () => {
+    try {
+      if (isWatching) {
+        await apiFetch(`/tasks/${task.id}/watchers`, { method: 'DELETE' });
+      } else {
+        await apiFetch(`/tasks/${task.id}/watchers`, { method: 'POST' });
+      }
+      await fetchWatchers();
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleAddTimeEntry = async (e) => {
     e.preventDefault();
@@ -348,6 +381,11 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
       <div className="modal task-detail-modal" onClick={e => e.stopPropagation()}>
         <div className="task-detail-header">
           <h2>{task.title}</h2>
+          {!readOnly && (
+            <button className="btn-ghost btn-sm" onClick={handleToggleWatch} disabled={loadingWatchers}>
+              {loadingWatchers ? '...' : isWatching ? 'Unwatch' : 'Watch'}
+            </button>
+          )}
           <button className="btn-ghost btn-sm" onClick={onClose}>&times;</button>
         </div>
 

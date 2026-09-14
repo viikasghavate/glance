@@ -17,6 +17,10 @@
   margin-right: 0.5rem;
 }
 
+.task-detail-header .btn-ghost {
+  margin-left: 0.5rem;
+}
+
 .task-detail-meta {
   display: flex;
   gap: 0.75rem;
