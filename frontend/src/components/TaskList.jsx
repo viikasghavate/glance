@@ -247,6 +247,11 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
                   {task.blockedBy && task.blockedBy.some(d => d.status !== 'done') && (
                     <span className="blocked-badge" title="Blocked by incomplete dependencies">⛔</span>
                   )}
+                  {task.checklist_progress && task.checklist_progress.total > 0 && (
+                    <span className={`checklist-chip ${task.checklist_progress.completed === task.checklist_progress.total ? 'complete' : ''}`}>
+                      ☑ {task.checklist_progress.completed}/{task.checklist_progress.total}
+                    </span>
+                  )}
                 </div>
                 <div className="task-table-cell">
                   {task.labels ? task.labels.split(',').map((l, i) => (

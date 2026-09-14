@@ -49,6 +49,21 @@ function getDescendantIds(taskId) {
   return ids;
 }
 
+function getChecklistProgressMap(taskIds) {
+  const map = {};
+  for (const id of taskIds) map[id] = { total: 0, completed: 0 };
+  if (taskIds.length === 0) return map;
+  const placeholders = taskIds.map(() => '?').join(', ');
+  const rows = db.prepare(
+    `SELECT task_id, COUNT(*) as total, COALESCE(SUM(completed), 0) as completed
+     FROM task_checklist WHERE task_id IN (${placeholders}) GROUP BY task_id`
+  ).all(...taskIds);
+  for (const row of rows) {
+    map[row.task_id] = { total: row.total, completed: row.completed || 0 };
+  }
+  return map;
+}
+
 function getDependencies(taskId) {
   const blockedBy = db.prepare(`
     SELECT t.id, t.title, t.status
@@ -199,7 +214,8 @@ router.get('/project/:projectId', (req, res) => {
     tasks = tasks.filter(t => idSet.has(t.id));
   }
 
-  const result = tasks.map(t => ({ ...t, ...getDependencies(t.id), labelList: getTaskLabels(t.id) }));
+  const checklistProgress = getChecklistProgressMap(tasks.map(t => t.id));
+  const result = tasks.map(t => ({ ...t, ...getDependencies(t.id), labelList: getTaskLabels(t.id), checklist_progress: checklistProgress[t.id] }));
 
   res.json(result);
 });
@@ -225,7 +241,8 @@ router.get('/mine', (req, res) => {
       t.title ASC
   `).all(req.user.id);
 
-  const result = tasks.map(t => ({ ...t, ...getDependencies(t.id), labelList: getTaskLabels(t.id) }));
+  const checklistProgress = getChecklistProgressMap(tasks.map(t => t.id));
+  const result = tasks.map(t => ({ ...t, ...getDependencies(t.id), labelList: getTaskLabels(t.id), checklist_progress: checklistProgress[t.id] }));
 
   res.json(result);
 });

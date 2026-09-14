@@ -187,6 +187,11 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
                     {task.estimated_hours != null && (
                       <span className="est-hours">{task.estimated_hours}h</span>
                     )}
+                    {task.checklist_progress && task.checklist_progress.total > 0 && (
+                      <span className={`checklist-chip ${task.checklist_progress.completed === task.checklist_progress.total ? 'complete' : ''}`}>
+                        ☑ {task.checklist_progress.completed}/{task.checklist_progress.total}
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
