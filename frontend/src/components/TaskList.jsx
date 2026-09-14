@@ -8,6 +8,57 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
   const [filterAssignee, setFilterAssignee] = useState('');
   const [collapsed, setCollapsed] = useState({});
   const [dragOverId, setDragOverId] = useState(null);
+  const [sortBy, setSortBy] = useState('');
+  const [sortDir, setSortDir] = useState('asc');
+
+  const priorityIndex = { low: 0, medium: 1, high: 2 };
+  const statusIndex = { todo: 0, in_progress: 1, done: 2 };
+
+  const sortCompare = (a, b) => {
+    if (sortBy === '') return 0;
+    if (sortBy === 'priority') {
+      const ai = priorityIndex[a.priority] ?? 0;
+      const bi = priorityIndex[b.priority] ?? 0;
+      return ai - bi;
+    }
+    if (sortBy === 'due_date') {
+      const ad = a.due_date ? String(a.due_date) : null;
+      const bd = b.due_date ? String(b.due_date) : null;
+      if (ad === null && bd === null) return 0;
+      if (ad === null) return 1;
+      if (bd === null) return -1;
+      return ad < bd ? -1 : ad > bd ? 1 : 0;
+    }
+    if (sortBy === 'status') {
+      const ai = statusIndex[a.status] ?? 0;
+      const bi = statusIndex[b.status] ?? 0;
+      return ai - bi;
+    }
+    if (sortBy === 'assignee') {
+      const av = (a.assignee_name || '').toLowerCase();
+      const bv = (b.assignee_name || '').toLowerCase();
+      return av < bv ? -1 : av > bv ? 1 : 0;
+    }
+    if (sortBy === 'title') {
+      const av = (a.title || '').toLowerCase();
+      const bv = (b.title || '').toLowerCase();
+      return av < bv ? -1 : av > bv ? 1 : 0;
+    }
+    return 0;
+  };
+
+  const sortedCompare = (a, b) => {
+    if (sortBy === 'due_date') {
+      const ad = a.due_date ? String(a.due_date) : null;
+      const bd = b.due_date ? String(b.due_date) : null;
+      if (ad === null && bd === null) return 0;
+      if (ad === null) return 1;
+      if (bd === null) return -1;
+    }
+    const result = sortCompare(a, b);
+    if (result !== 0) return sortDir === 'desc' ? -result : result;
+    return 0;
+  };
 
   const toggleCollapse = (id) => {
     setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
@@ -24,8 +75,13 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
         roots.push(taskMap[t.id]);
       }
     });
-    return roots;
-  }, [tasks]);
+    const applySort = (nodes) => {
+      if (sortBy !== '') nodes.sort(sortedCompare);
+      nodes.forEach(n => applySort(n.children));
+      return nodes;
+    };
+    return applySort(roots);
+  }, [tasks, sortBy, sortDir]);
 
   const matchesFilter = (t) => {
     if (filterStatus && t.status !== filterStatus) return false;
@@ -107,6 +163,23 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
             <option key={u.id} value={u.id}>{u.name}</option>
           ))}
         </select>
+        <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
+          <option value="">Sort by: None</option>
+          <option value="priority">Sort by: Priority</option>
+          <option value="due_date">Sort by: Due Date</option>
+          <option value="status">Sort by: Status</option>
+          <option value="assignee">Sort by: Assignee</option>
+          <option value="title">Sort by: Title</option>
+        </select>
+        <button
+          type="button"
+          className="sort-toggle"
+          disabled={!sortBy}
+          onClick={() => setSortDir(dir => (dir === 'asc' ? 'desc' : 'asc'))}
+          title={sortDir === 'asc' ? 'Sort: Ascending' : 'Sort: Descending'}
+        >
+          {sortDir === 'asc' ? '↑' : '↓'}
+        </button>
       </div>
 
       {filtered.length === 0 ? (
