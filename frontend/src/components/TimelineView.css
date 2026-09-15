@@ -24,6 +24,11 @@
   min-width: 140px;
 }
 
+.timeline-search {
+  width: auto;
+  min-width: 200px;
+}
+
 .sort-toggle {
   background: transparent;
   border: 1px solid var(--border);

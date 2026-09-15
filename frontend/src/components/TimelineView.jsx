@@ -75,6 +75,7 @@ export default function TimelineView({ tasks, users, onTaskClick }) {
   const [filterSprint, setFilterSprint] = useState('');
   const [filterMilestone, setFilterMilestone] = useState('');
   const [filterDue, setFilterDue] = useState('');
+  const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('');
   const [sortDir, setSortDir] = useState('asc');
 
@@ -153,6 +154,21 @@ export default function TimelineView({ tasks, users, onTaskClick }) {
   }, [tasks]);
 
   const filteredTasks = tasks.filter(t => {
+    if (search) {
+      const q = search.trim().toLowerCase();
+      const labelNames = t.labelList && t.labelList.length
+        ? t.labelList.map(l => (l.name || '').toLowerCase())
+        : (t.labels ? t.labels.split(',').map(l => l.trim().toLowerCase()) : []);
+      const haystack = [
+        t.title,
+        t.description,
+        t.project_name,
+        t.sprint_name,
+        t.milestone_name,
+        ...labelNames
+      ].filter(v => v != null).join(' ').toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
     if (filterLabel && !(t.labels ? t.labels.split(',').map(l => l.trim().toLowerCase()) : []).includes(filterLabel.toLowerCase())) return false;
     if (filterPriority && t.priority !== filterPriority) return false;
     if (filterAssignee && String(t.assignee_id) !== filterAssignee) return false;
@@ -232,7 +248,7 @@ export default function TimelineView({ tasks, users, onTaskClick }) {
       totalDays: days,
       dayWidth: width
     };
-  }, [filteredTasks, filterLabel, filterPriority, filterAssignee, filterDue, sortBy, sortDir]);
+  }, [filteredTasks, filterLabel, filterPriority, filterAssignee, filterDue, search, sortBy, sortDir]);
 
   useEffect(() => {
     if (!timelineStart) return;
@@ -336,6 +352,13 @@ export default function TimelineView({ tasks, users, onTaskClick }) {
   return (
     <div className="timeline-container">
       <div className="timeline-filters">
+        <input
+          type="text"
+          className="timeline-search"
+          placeholder="Search tasks…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
         <select value={filterLabel} onChange={e => setFilterLabel(e.target.value)}>
           <option value="">All Labels</option>
           {distinctLabels.map(l => (
