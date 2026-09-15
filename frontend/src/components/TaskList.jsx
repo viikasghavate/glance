@@ -272,22 +272,34 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
         <button type="button" className="btn-ghost btn-sm" onClick={expandAll} title="Expand all subtasks">Expand all</button>
       </div>
 
-      {filtered.length === 0 ? (
-        <div className="empty">No tasks match the filters.</div>
-      ) : (
-        <div className="task-table-wrap">
-          <div className="task-table">
-            <div className="task-table-head task-table-row">
-              <div className="task-table-cell">Title</div>
-              <div className="task-table-cell">Labels</div>
-              <div className="task-table-cell">Status</div>
-              <div className="task-table-cell">Priority</div>
-              <div className="task-table-cell">Assignee</div>
-              <div className="task-table-cell">Due Date</div>
-              <div className="task-table-cell">Est. Hours</div>
-              <div className="task-table-cell">Spent</div>
+      <div className="task-table-wrap">
+        <div className="task-table">
+          <div className="task-table-head task-table-row">
+            <div className="task-table-cell">Title</div>
+            <div className="task-table-cell">Labels</div>
+            <div className="task-table-cell">Status</div>
+            <div className="task-table-cell">Priority</div>
+            <div className="task-table-cell">Assignee</div>
+            <div className="task-table-cell">Due Date</div>
+            <div className="task-table-cell">Est. Hours</div>
+            <div className="task-table-cell">Spent</div>
+          </div>
+          {tasks.length === 0 ? (
+            <div className="task-table-row empty-row">
+              <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
+                {readOnly
+                  ? 'No tasks match the current filters.'
+                  : 'No tasks yet. Click "New Task" to add one, or clear your filters.'}
+              </div>
             </div>
-            {filtered.map(task => (
+          ) : filtered.length === 0 ? (
+            <div className="task-table-row empty-row">
+              <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
+                No tasks match the filters.
+              </div>
+            </div>
+          ) : (
+            filtered.map(task => (
               <div
                 key={task.id}
                 onClick={() => onTaskClick(task)}
@@ -360,10 +372,10 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
                 <div className="task-table-cell date-cell">{task.estimated_hours != null ? `${task.estimated_hours}h` : '-'}</div>
                 <div className="task-table-cell date-cell">{task.time_spent != null ? `${task.time_spent}h` : '-'}</div>
               </div>
-            ))}
-          </div>
+            ))
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

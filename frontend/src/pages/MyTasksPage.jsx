@@ -87,8 +87,13 @@ export default function MyTasksPage() {
         </button>
       </div>
 
-      {filtered.length === 0 ? (
-        <div className="empty">No tasks assigned to you.</div>
+      {tasks.length === 0 ? (
+        <div className="empty-state">
+          <div>You have no assigned tasks yet.</div>
+          <div className="empty-hint">Tasks assigned to you will appear here.</div>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="empty-state">No tasks match your filter.</div>
       ) : (
         <div className="panel">
           <div className="my-tasks-list">

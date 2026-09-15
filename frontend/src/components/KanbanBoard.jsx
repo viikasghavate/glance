@@ -202,6 +202,13 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
         <button type="button" className="btn-ghost btn-sm" onClick={collapseAll} title="Collapse all subtasks">Collapse all</button>
         <button type="button" className="btn-ghost btn-sm" onClick={expandAll} title="Expand all subtasks">Expand all</button>
       </div>
+      {tasks.length === 0 && (
+        <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
+          {readOnly
+            ? 'No tasks match the current filters.'
+            : 'No tasks yet. Click "New Task" to add one, or clear your filters.'}
+        </div>
+      )}
       {COLUMNS.map(col => {
         const colTasks = getTasks(col.key);
         return (
