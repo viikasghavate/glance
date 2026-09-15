@@ -193,7 +193,8 @@ router.get('/project/:projectId', (req, res) => {
     SELECT t.*, u.name as assignee_name, u.email as assignee_email,
            r.name as reporter_name, r.email as reporter_email,
            s.name as sprint_name, m.name as milestone_name,
-           (SELECT COUNT(*) FROM tasks WHERE parent_id = t.id AND deleted_at IS NULL) as subtask_count
+           (SELECT COUNT(*) FROM tasks WHERE parent_id = t.id AND deleted_at IS NULL) as subtask_count,
+           (SELECT COUNT(*) FROM comments WHERE task_id = t.id) as comment_count
     FROM tasks t
     LEFT JOIN users u ON t.assignee_id = u.id
     LEFT JOIN users r ON t.reporter_id = r.id
@@ -225,7 +226,8 @@ router.get('/mine', (req, res) => {
     SELECT t.*, p.name as project_name, u.name as assignee_name, u.email as assignee_email,
            r.name as reporter_name, r.email as reporter_email,
            s.name as sprint_name, m.name as milestone_name,
-           (SELECT COUNT(*) FROM tasks WHERE parent_id = t.id AND deleted_at IS NULL) as subtask_count
+           (SELECT COUNT(*) FROM tasks WHERE parent_id = t.id AND deleted_at IS NULL) as subtask_count,
+           (SELECT COUNT(*) FROM comments WHERE task_id = t.id) as comment_count
     FROM tasks t
     LEFT JOIN projects p ON t.project_id = p.id
     LEFT JOIN users u ON t.assignee_id = u.id

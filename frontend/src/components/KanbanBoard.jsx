@@ -241,6 +241,9 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
                     {task.subtask_count > 0 && (
                       <span className="subtask-count">{task.subtask_count}</span>
                     )}
+                    {task.comment_count > 0 && (
+                      <span className="comment-count" title={`${task.comment_count} comment${task.comment_count === 1 ? '' : 's'}`}>💬 {task.comment_count}</span>
+                    )}
                     {task.recurrence && task.recurrence !== 'none' && (
                       <span className="recurrence-badge" title={`Recurring: ${task.recurrence}`}>↻</span>
                     )}
