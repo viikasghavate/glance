@@ -358,6 +358,9 @@ export default function Layout() {
     searchOpenRef.current = searchOpen;
   }, [searchOpen]);
 
+  const hasSearchResults = searchResults &&
+    (searchResults.projects?.length || searchResults.tasks?.length || searchResults.comments?.length);
+
   useEffect(() => {
     hasSearchResultsRef.current = hasSearchResults;
   }, [hasSearchResults]);
@@ -379,9 +382,6 @@ export default function Layout() {
       target.isContentEditable
     );
   };
-
-  const hasSearchResults = searchResults &&
-    (searchResults.projects?.length || searchResults.tasks?.length || searchResults.comments?.length);
 
   return (
     <div className="app-shell">
