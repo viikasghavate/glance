@@ -2,6 +2,22 @@ import { useState, useMemo } from 'react';
 import './TaskList.css';
 import { isOverdue } from './overdue';
 
+const todayStr = () => {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
+
+const inDueWeek = (due, today) => {
+  if (!due) return false;
+  if (String(due) < today) return false;
+  const end = new Date(today + 'T00:00:00');
+  end.setDate(end.getDate() + 6);
+  const p = n => String(n).padStart(2, '0');
+  const endStr = `${end.getFullYear()}-${p(end.getMonth() + 1)}-${p(end.getDate())}`;
+  return String(due) <= endStr;
+};
+
 export default function TaskList({ tasks, users, onTaskClick, onStatusChange, onReorder, readOnly }) {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterPriority, setFilterPriority] = useState('');
@@ -9,6 +25,7 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
   const [filterLabel, setFilterLabel] = useState('');
   const [filterSprint, setFilterSprint] = useState('');
   const [filterMilestone, setFilterMilestone] = useState('');
+  const [filterDue, setFilterDue] = useState('');
   const [collapsed, setCollapsed] = useState({});
   const [dragOverId, setDragOverId] = useState(null);
   const [sortBy, setSortBy] = useState('');
@@ -93,6 +110,9 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
     if (filterLabel && !(t.labels ? t.labels.split(',').map(l => l.trim().toLowerCase()) : []).includes(filterLabel.toLowerCase())) return false;
     if (filterSprint && t.sprint_name !== filterSprint) return false;
     if (filterMilestone && t.milestone_name !== filterMilestone) return false;
+    if (filterDue === 'overdue' && !isOverdue(t.due_date, t.status)) return false;
+    if (filterDue === 'today' && !(t.due_date && String(t.due_date) === todayStr())) return false;
+    if (filterDue === 'week' && !inDueWeek(t.due_date, todayStr())) return false;
     return true;
   };
 
@@ -114,7 +134,7 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
     return result;
   };
 
-  const filtered = useMemo(() => flattenTree(tree), [tree, filterStatus, filterPriority, filterAssignee, filterLabel, filterSprint, filterMilestone, collapsed]);
+  const filtered = useMemo(() => flattenTree(tree), [tree, filterStatus, filterPriority, filterAssignee, filterLabel, filterSprint, filterMilestone, filterDue, collapsed]);
 
   const distinctLabels = useMemo(() => {
     const set = new Set();
@@ -211,6 +231,12 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
           {distinctMilestones.map(m => (
             <option key={m} value={m}>{m}</option>
           ))}
+        </select>
+        <select value={filterDue} onChange={e => setFilterDue(e.target.value)}>
+          <option value="">All Due</option>
+          <option value="overdue">Overdue</option>
+          <option value="today">Due Today</option>
+          <option value="week">Due This Week</option>
         </select>
         <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
           <option value="">Sort by: None</option>

@@ -2,6 +2,22 @@ import { useState, useMemo } from 'react';
 import './KanbanBoard.css';
 import { isOverdue } from './overdue';
 
+const todayStr = () => {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
+
+const inDueWeek = (due, today) => {
+  if (!due) return false;
+  if (String(due) < today) return false;
+  const end = new Date(today + 'T00:00:00');
+  end.setDate(end.getDate() + 6);
+  const p = n => String(n).padStart(2, '0');
+  const endStr = `${end.getFullYear()}-${p(end.getMonth() + 1)}-${p(end.getDate())}`;
+  return String(due) <= endStr;
+};
+
 const COLUMNS = [
   { key: 'todo', label: 'To Do' },
   { key: 'in_progress', label: 'In Progress' },
@@ -16,6 +32,7 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
   const [filterAssignee, setFilterAssignee] = useState('');
   const [filterSprint, setFilterSprint] = useState('');
   const [filterMilestone, setFilterMilestone] = useState('');
+  const [filterDue, setFilterDue] = useState('');
 
   const toggleCollapse = (id) => {
     setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
@@ -55,7 +72,15 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
       .filter(t => !filterAssignee || String(t.assignee_id) === filterAssignee)
       .filter(t => !filterSprint || t.sprint_name === filterSprint)
       .filter(t => !filterMilestone || t.milestone_name === filterMilestone)
+      .filter(t => !filterDue || dueMatches(t, filterDue))
       .sort((a, b) => a.position - b.position);
+  };
+
+  const dueMatches = (t, filterDue) => {
+    if (filterDue === 'overdue') return isOverdue(t.due_date, t.status);
+    if (filterDue === 'today') return !!(t.due_date && String(t.due_date) === todayStr());
+    if (filterDue === 'week') return inDueWeek(t.due_date, todayStr());
+    return true;
   };
 
   const distinctLabels = useMemo(() => {
@@ -154,6 +179,12 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
           {distinctMilestones.map(m => (
             <option key={m} value={m}>{m}</option>
           ))}
+        </select>
+        <select value={filterDue} onChange={e => setFilterDue(e.target.value)}>
+          <option value="">All Due</option>
+          <option value="overdue">Overdue</option>
+          <option value="today">Due Today</option>
+          <option value="week">Due This Week</option>
         </select>
       </div>
       {COLUMNS.map(col => {
