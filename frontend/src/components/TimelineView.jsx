@@ -1,6 +1,22 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react';
 import './TimelineView.css';
-import { dueInfo } from './overdue';
+import { isOverdue, dueInfo } from './overdue';
+
+const todayStr = () => {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
+
+const inDueWeek = (due, today) => {
+  if (!due) return false;
+  if (String(due) < today) return false;
+  const end = new Date(today + 'T00:00:00');
+  end.setDate(end.getDate() + 6);
+  const p = n => String(n).padStart(2, '0');
+  const endStr = `${end.getFullYear()}-${p(end.getMonth() + 1)}-${p(end.getDate())}`;
+  return String(due) <= endStr;
+};
 
 const DAY_MS = 86400000;
 const STATUS_COLORS = {
@@ -56,6 +72,7 @@ export default function TimelineView({ tasks, users, onTaskClick }) {
   const [filterLabel, setFilterLabel] = useState('');
   const [filterPriority, setFilterPriority] = useState('');
   const [filterAssignee, setFilterAssignee] = useState('');
+  const [filterDue, setFilterDue] = useState('');
 
   const distinctLabels = useMemo(() => {
     const set = new Set();
@@ -70,11 +87,15 @@ export default function TimelineView({ tasks, users, onTaskClick }) {
     return [...set].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
   }, [tasks]);
 
-  const filteredTasks = tasks.filter(t =>
-    (!filterLabel || (t.labels ? t.labels.split(',').map(l => l.trim().toLowerCase()) : []).includes(filterLabel.toLowerCase())) &&
-    (!filterPriority || t.priority === filterPriority) &&
-    (!filterAssignee || String(t.assignee_id) === filterAssignee)
-  );
+  const filteredTasks = tasks.filter(t => {
+    if (filterLabel && !(t.labels ? t.labels.split(',').map(l => l.trim().toLowerCase()) : []).includes(filterLabel.toLowerCase())) return false;
+    if (filterPriority && t.priority !== filterPriority) return false;
+    if (filterAssignee && String(t.assignee_id) !== filterAssignee) return false;
+    if (filterDue === 'overdue' && !isOverdue(t.due_date, t.status)) return false;
+    if (filterDue === 'today' && !(t.due_date && String(t.due_date) === todayStr())) return false;
+    if (filterDue === 'week' && !inDueWeek(t.due_date, todayStr())) return false;
+    return true;
+  });
 
   const { groups, timelineStart, timelineEnd, totalDays, dayWidth } = useMemo(() => {
     const tasksWithDates = filteredTasks.filter(t => t.start_date && t.due_date);
@@ -143,7 +164,7 @@ export default function TimelineView({ tasks, users, onTaskClick }) {
       totalDays: days,
       dayWidth: width
     };
-  }, [filteredTasks, filterLabel, filterPriority, filterAssignee]);
+  }, [filteredTasks, filterLabel, filterPriority, filterAssignee, filterDue]);
 
   useEffect(() => {
     if (!timelineStart) return;
@@ -264,6 +285,12 @@ export default function TimelineView({ tasks, users, onTaskClick }) {
           {users.map(u => (
             <option key={u.id} value={u.id}>{u.name}</option>
           ))}
+        </select>
+        <select value={filterDue} onChange={e => setFilterDue(e.target.value)}>
+          <option value="">All Due</option>
+          <option value="overdue">Overdue</option>
+          <option value="today">Due Today</option>
+          <option value="week">Due This Week</option>
         </select>
       </div>
       <div className="timeline-scroll" ref={timelineRef}>
