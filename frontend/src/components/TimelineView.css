@@ -11,6 +11,27 @@
   overflow: hidden;
 }
 
+.timeline-filters {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.timeline-filters select {
+  width: auto;
+  min-width: 140px;
+}
+
+.timeline-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  padding: 1.5rem 0;
+  width: 100%;
+}
+
 .timeline-scroll {
   flex: 1;
   overflow: auto;

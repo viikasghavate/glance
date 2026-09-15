@@ -53,10 +53,32 @@ function getMonday(d) {
 export default function TimelineView({ tasks, users, onTaskClick }) {
   const timelineRef = useRef(null);
   const [todayLeft, setTodayLeft] = useState(null);
+  const [filterLabel, setFilterLabel] = useState('');
+  const [filterPriority, setFilterPriority] = useState('');
+  const [filterAssignee, setFilterAssignee] = useState('');
+
+  const distinctLabels = useMemo(() => {
+    const set = new Set();
+    tasks.forEach(t => {
+      if (t.labels) {
+        t.labels.split(',').forEach(l => {
+          const v = l.trim();
+          if (v) set.add(v);
+        });
+      }
+    });
+    return [...set].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  }, [tasks]);
+
+  const filteredTasks = tasks.filter(t =>
+    (!filterLabel || (t.labels ? t.labels.split(',').map(l => l.trim().toLowerCase()) : []).includes(filterLabel.toLowerCase())) &&
+    (!filterPriority || t.priority === filterPriority) &&
+    (!filterAssignee || String(t.assignee_id) === filterAssignee)
+  );
 
   const { groups, timelineStart, timelineEnd, totalDays, dayWidth } = useMemo(() => {
-    const tasksWithDates = tasks.filter(t => t.start_date && t.due_date);
-    const tasksWithoutDates = tasks.filter(t => !t.start_date || !t.due_date);
+    const tasksWithDates = filteredTasks.filter(t => t.start_date && t.due_date);
+    const tasksWithoutDates = filteredTasks.filter(t => !t.start_date || !t.due_date);
 
     let minDate = null;
     let maxDate = null;
@@ -121,7 +143,7 @@ export default function TimelineView({ tasks, users, onTaskClick }) {
       totalDays: days,
       dayWidth: width
     };
-  }, [tasks]);
+  }, [filteredTasks, filterLabel, filterPriority, filterAssignee]);
 
   useEffect(() => {
     if (!timelineStart) return;
@@ -224,6 +246,26 @@ export default function TimelineView({ tasks, users, onTaskClick }) {
 
   return (
     <div className="timeline-container">
+      <div className="timeline-filters">
+        <select value={filterLabel} onChange={e => setFilterLabel(e.target.value)}>
+          <option value="">All Labels</option>
+          {distinctLabels.map(l => (
+            <option key={l} value={l}>{l}</option>
+          ))}
+        </select>
+        <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
+          <option value="">All Priorities</option>
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
+        <select value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)}>
+          <option value="">All Assignees</option>
+          {users.map(u => (
+            <option key={u.id} value={u.id}>{u.name}</option>
+          ))}
+        </select>
+      </div>
       <div className="timeline-scroll" ref={timelineRef}>
         <div className="timeline-inner" style={{ width: leftWidth + timelineWidth }}>
           {/* Sticky top header: left "Task" title + right month/day headers */}
@@ -257,6 +299,10 @@ export default function TimelineView({ tasks, users, onTaskClick }) {
 
           {todayLeft !== null && (
             <div className="timeline-today-line" style={{ left: leftWidth + todayLeft }} />
+          )}
+
+          {filteredTasks.length === 0 && (
+            <div className="timeline-empty">No tasks match the filters.</div>
           )}
 
           {groups.map((group, gi) => (
