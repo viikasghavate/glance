@@ -24,6 +24,8 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
   const [note, setNote] = useState('');
   const [submittingTime, setSubmittingTime] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [statusHistory, setStatusHistory] = useState([]);
+  const [loadingStatusHistory, setLoadingStatusHistory] = useState(true);
 
   const parentTask = tasks?.find(t => t.id === task.parent_id) || null;
   const subtasks = tasks?.filter(t => t.parent_id === task.id) || [];
@@ -128,6 +130,19 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
   };
 
   useEffect(() => { fetchWatchers(); }, [task.id]);
+
+  const fetchStatusHistory = async () => {
+    try {
+      const data = await apiFetch(`/tasks/${task.id}/status-history`);
+      setStatusHistory(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingStatusHistory(false);
+    }
+  };
+
+  useEffect(() => { fetchStatusHistory(); }, [task.id]);
 
   const isWatching = watchers.some(w => w.id === user?.id);
 
@@ -694,6 +709,25 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
                 {submittingTime ? 'Logging...' : 'Log Time'}
               </button>
             </form>
+          )}
+        </div>
+
+        <div className="status-history-section">
+          <h4>Status History {statusHistory.length > 0 && <span className="status-history-count">{statusHistory.length}</span>}</h4>
+          {loadingStatusHistory ? (
+            <div className="loading"><div className="spinner" /></div>
+          ) : statusHistory.length === 0 ? (
+            <p className="empty">No status changes recorded yet.</p>
+          ) : (
+            <div className="status-history-list">
+              {statusHistory.map(row => (
+                <div key={row.id} className="status-history-entry">
+                  <span className={`badge badge-${row.status}`}>{statusLabel(row.status)}</span>
+                  <span className="status-history-user">{row.user_name || 'System'}</span>
+                  <span className="status-history-date">{relativeTime(row.changed_at)}</span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
 
