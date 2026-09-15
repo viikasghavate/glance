@@ -72,6 +72,8 @@ export default function TimelineView({ tasks, users, onTaskClick }) {
   const [filterLabel, setFilterLabel] = useState('');
   const [filterPriority, setFilterPriority] = useState('');
   const [filterAssignee, setFilterAssignee] = useState('');
+  const [filterSprint, setFilterSprint] = useState('');
+  const [filterMilestone, setFilterMilestone] = useState('');
   const [filterDue, setFilterDue] = useState('');
   const [sortBy, setSortBy] = useState('');
   const [sortDir, setSortDir] = useState('asc');
@@ -138,10 +140,24 @@ export default function TimelineView({ tasks, users, onTaskClick }) {
     return [...set].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
   }, [tasks]);
 
+  const distinctSprints = useMemo(() => {
+    const set = new Set();
+    tasks.forEach(t => { if (t.sprint_name) set.add(t.sprint_name); });
+    return [...set].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  }, [tasks]);
+
+  const distinctMilestones = useMemo(() => {
+    const set = new Set();
+    tasks.forEach(t => { if (t.milestone_name) set.add(t.milestone_name); });
+    return [...set].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  }, [tasks]);
+
   const filteredTasks = tasks.filter(t => {
     if (filterLabel && !(t.labels ? t.labels.split(',').map(l => l.trim().toLowerCase()) : []).includes(filterLabel.toLowerCase())) return false;
     if (filterPriority && t.priority !== filterPriority) return false;
     if (filterAssignee && String(t.assignee_id) !== filterAssignee) return false;
+    if (filterSprint && t.sprint_name !== filterSprint) return false;
+    if (filterMilestone && t.milestone_name !== filterMilestone) return false;
     if (filterDue === 'overdue' && !isOverdue(t.due_date, t.status)) return false;
     if (filterDue === 'today' && !(t.due_date && String(t.due_date) === todayStr())) return false;
     if (filterDue === 'week' && !inDueWeek(t.due_date, todayStr())) return false;
@@ -336,6 +352,18 @@ export default function TimelineView({ tasks, users, onTaskClick }) {
           <option value="">All Assignees</option>
           {users.map(u => (
             <option key={u.id} value={u.id}>{u.name}</option>
+          ))}
+        </select>
+        <select value={filterSprint} onChange={e => setFilterSprint(e.target.value)}>
+          <option value="">All Sprints</option>
+          {distinctSprints.map(s => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+        <select value={filterMilestone} onChange={e => setFilterMilestone(e.target.value)}>
+          <option value="">All Milestones</option>
+          {distinctMilestones.map(m => (
+            <option key={m} value={m}>{m}</option>
           ))}
         </select>
         <select value={filterDue} onChange={e => setFilterDue(e.target.value)}>
