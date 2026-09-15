@@ -33,6 +33,7 @@ export default function ProjectDetailPage() {
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [showArchived, setShowArchived] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -144,6 +145,8 @@ export default function ProjectDetailPage() {
   if (loading) return <div className="loading"><div className="spinner" /></div>;
   if (!project) return null;
 
+  const visibleTasks = showArchived ? tasks : tasks.filter(t => !t.archived);
+
   return (
     <div>
       <div className="page-header">
@@ -171,6 +174,12 @@ export default function ProjectDetailPage() {
           <button className="btn-ghost" onClick={handleExportCsv}>
             Export CSV
           </button>
+          <button
+            className={`btn-ghost btn-sm ${showArchived ? 'btn-archived-active' : ''}`}
+            onClick={() => setShowArchived(s => !s)}
+          >
+            {showArchived ? 'Hide archived' : 'Show archived'}
+          </button>
           {!hasRole('viewer') && (
             <button className="btn-primary" onClick={() => { setEditingTask(null); setShowTaskModal(true); }}>
               + New Task
@@ -181,7 +190,7 @@ export default function ProjectDetailPage() {
 
       {view === 'board' && (
         <KanbanBoard
-          tasks={tasks}
+          tasks={visibleTasks}
           users={users}
           onReorder={handleReorder}
           onTaskClick={setSelectedTask}
@@ -191,7 +200,7 @@ export default function ProjectDetailPage() {
       )}
       {view === 'list' && (
         <TaskList
-          tasks={tasks}
+          tasks={visibleTasks}
           users={users}
           onTaskClick={setSelectedTask}
           onStatusChange={(taskId, status) => handleTaskUpdate(taskId, { status })}
@@ -201,7 +210,7 @@ export default function ProjectDetailPage() {
       )}
       {view === 'timeline' && (
         <TimelineView
-          tasks={tasks}
+          tasks={visibleTasks}
           users={users}
           onTaskClick={setSelectedTask}
         />
