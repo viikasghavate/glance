@@ -43,6 +43,7 @@ export default function MyTasksPage() {
   const [dueFilter, setDueFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [assigneeFilter, setAssigneeFilter] = useState('');
+  const [labelFilter, setLabelFilter] = useState('');
 
   useEffect(() => {
     apiFetch('/tasks/mine')
@@ -77,6 +78,19 @@ export default function MyTasksPage() {
     return [...map.values()].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
   }, [tasks]);
 
+  const distinctLabels = useMemo(() => {
+    const set = new Set();
+    tasks.forEach(t => {
+      const fromList = (t.labelList || []).map(l => l.name);
+      const fromStr = (t.labels || '').split(',').map(l => l.trim()).filter(Boolean);
+      [...fromList, ...fromStr].forEach(l => {
+        const v = l.trim();
+        if (v) set.add(v);
+      });
+    });
+    return [...set].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  }, [tasks]);
+
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     let result = tasks;
@@ -109,6 +123,15 @@ export default function MyTasksPage() {
 
     if (assigneeFilter) {
       result = result.filter(t => String(t.assignee_id) === String(assigneeFilter));
+    }
+
+    if (labelFilter) {
+      const target = labelFilter.toLowerCase();
+      result = result.filter(t => {
+        const fromList = (t.labelList || []).map(l => l.name);
+        const fromStr = (t.labels || '').split(',').map(l => l.trim()).filter(Boolean);
+        return [...fromList, ...fromStr].map(l => l.toLowerCase()).includes(target);
+      });
     }
 
     if (sortBy) {
@@ -146,7 +169,7 @@ export default function MyTasksPage() {
     }
 
     return result;
-  }, [tasks, filter, search, sortBy, sortDir, dueFilter, priorityFilter, assigneeFilter, today]);
+  }, [tasks, filter, search, sortBy, sortDir, dueFilter, priorityFilter, assigneeFilter, labelFilter, today]);
 
   if (loading) return <div className="loading"><div className="spinner" /></div>;
   if (error) return <div className="error-msg">{error}</div>;
@@ -197,6 +220,12 @@ export default function MyTasksPage() {
           <option value="">All Assignees</option>
           {assigneeOptions.map(a => (
             <option key={a.id} value={a.id}>{a.name}</option>
+          ))}
+        </select>
+        <select value={labelFilter} onChange={e => setLabelFilter(e.target.value)}>
+          <option value="">All Labels</option>
+          {distinctLabels.map(l => (
+            <option key={l} value={l}>{l}</option>
           ))}
         </select>
       </div>
