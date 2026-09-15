@@ -285,6 +285,12 @@ export default function TimelineView({ tasks, users, onTaskClick }) {
                               {getInitials(getUserName(task.assignee_id))}
                             </span>
                           )}
+                          {task.recurrence && task.recurrence !== 'none' && (
+                            <span className="recurrence-badge" title={`Recurring: ${task.recurrence}`}>↻</span>
+                          )}
+                          {task.blockedBy && task.blockedBy.some(d => d.status !== 'done') && (
+                            <span className="blocked-badge" title="Blocked by incomplete dependencies">⛔</span>
+                          )}
                         </span>
                       </div>
                       <div className="timeline-task-dates">
