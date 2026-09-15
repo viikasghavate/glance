@@ -132,15 +132,20 @@ function ProjectNavGroups({ projects, portfolios, programs, currentProjectId }) 
     if (!p.program_id && !p.portfolio_id) ungrouped.push(p);
   }
 
-  const renderProject = (p) => (    <Link
-      key={p.id}
-      to={`/project/${p.id}`}
-      className={`project-nav-item ${currentProjectId === String(p.id) ? 'active' : ''}`}
-    >
-      <span className="project-nav-dot" style={{ background: p.color }} />
-      <span className="project-nav-name">{p.name}</span>
-    </Link>
-  );
+  const renderProject = (p) => {
+    const openTasks = (p.taskCounts?.todo || 0) + (p.taskCounts?.in_progress || 0);
+    return (
+      <Link
+        key={p.id}
+        to={`/project/${p.id}`}
+        className={`project-nav-item ${currentProjectId === String(p.id) ? 'active' : ''}`}
+      >
+        <span className="project-nav-dot" style={{ background: p.color }} />
+        <span className="project-nav-name">{p.name}</span>
+        {openTasks > 0 && <span className="project-nav-badge">{openTasks}</span>}
+      </Link>
+    );
+  };
 
   return (
     <>

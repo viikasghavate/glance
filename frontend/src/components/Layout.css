@@ -186,6 +186,18 @@
   white-space: nowrap;
 }
 
+.project-nav-badge {
+  margin-left: auto;
+  font-size: 0.7rem;
+  line-height: 1;
+  padding: 0.125rem 0.375rem;
+  border-radius: 999px;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
 .project-nav-footer {
   padding: 0.5rem;
   border-top: 1px solid var(--border);
