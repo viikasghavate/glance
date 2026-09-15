@@ -24,6 +24,26 @@
   min-width: 140px;
 }
 
+.sort-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  padding: 0.25rem 0.625rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.sort-toggle:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.sort-toggle:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .timeline-empty {
   text-align: center;
   color: var(--text-muted);
