@@ -225,50 +225,11 @@ export default function TimelineView({ tasks, users, onTaskClick }) {
     <div className="timeline-container">
       <div className="timeline-scroll" ref={timelineRef}>
         <div className="timeline-inner" style={{ width: leftWidth + timelineWidth }}>
-          {/* Fixed left pane: task names stay in place (sticky left) */}
-          <div className="timeline-left-col">
+          {/* Sticky top header: left "Task" title + right month/day headers */}
+          <div className="timeline-header">
             <div className="timeline-left-header">
               <span className="timeline-left-title">Task</span>
             </div>
-            {groups.map((group, gi) => (
-              <React.Fragment key={gi}>
-                <div className="timeline-group-header-left-cell">{group.label}</div>
-                {group.tasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className={`timeline-row-left ${getDepth(task) > 0 ? 'subtask-row' : ''}`}
-                    onClick={() => onTaskClick(task)}
-                  >
-                    <div className="timeline-task-info" style={{ paddingLeft: `${getDepth(task) * 1}rem` }}>
-                      <span className="timeline-task-name">{task.title}</span>
-                      <span className="timeline-task-meta">
-                        <span className={`badge badge-${task.priority}`}>{task.priority}</span>
-                        <span className="timeline-status" style={{ color: STATUS_COLORS[task.status] }}>
-                          {STATUS_LABELS[task.status] || task.status}
-                        </span>
-                        {task.assignee_id && (
-                          <span className="timeline-assignee" title={getUserName(task.assignee_id)}>
-                            {getInitials(getUserName(task.assignee_id))}
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                    <div className="timeline-task-dates">
-                      <span>{formatDateShort(task.start_date)}</span>
-                      <span className="timeline-date-sep">–</span>
-                      <span>{formatDateShort(task.due_date)}</span>
-                      {(task.start_time || task.end_time) && (
-                        <span className="timeline-task-times">{task.start_time || '—'}–{task.end_time || '—'}</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </React.Fragment>
-            ))}
-          </div>
-
-          {/* Scrollable right pane: days + bars */}
-          <div className="timeline-right-col">
             <div className="timeline-right-header" style={{ width: timelineWidth }}>
               {monthColumns.map((col, i) => (
                 <div
@@ -291,22 +252,51 @@ export default function TimelineView({ tasks, users, onTaskClick }) {
                 ))}
               </div>
             </div>
+          </div>
 
-            {todayLeft !== null && (
-              <div className="timeline-today-line" style={{ left: todayLeft }} />
-            )}
+          {todayLeft !== null && (
+            <div className="timeline-today-line" style={{ left: leftWidth + todayLeft }} />
+          )}
 
-            {groups.map((group, gi) => (
-              <React.Fragment key={gi}>
-                <div className="timeline-group-header-right-cell" />
-                {group.tasks.map((task) => {
-                  const barStyle = getBarStyle(task);
-                  return (
-                    <div
-                      key={task.id}
-                      className={`timeline-row-right ${getDepth(task) > 0 ? 'subtask-row' : ''}`}
-                      onClick={() => onTaskClick(task)}
-                    >
+          {groups.map((group, gi) => (
+            <React.Fragment key={gi}>
+              <div className="timeline-group-header">
+                <div className="timeline-group-header-left-cell">{group.label}</div>
+                <div className="timeline-group-header-right-cell" style={{ width: timelineWidth }} />
+              </div>
+              {group.tasks.map((task) => {
+                const barStyle = getBarStyle(task);
+                return (
+                  <div
+                    key={task.id}
+                    className={`timeline-row ${getDepth(task) > 0 ? 'subtask-row' : ''}`}
+                    onClick={() => onTaskClick(task)}
+                  >
+                    <div className="timeline-row-left">
+                      <div className="timeline-task-info" style={{ paddingLeft: `${getDepth(task) * 1}rem` }}>
+                        <span className="timeline-task-name">{task.title}</span>
+                        <span className="timeline-task-meta">
+                          <span className={`badge badge-${task.priority}`}>{task.priority}</span>
+                          <span className="timeline-status" style={{ color: STATUS_COLORS[task.status] }}>
+                            {STATUS_LABELS[task.status] || task.status}
+                          </span>
+                          {task.assignee_id && (
+                            <span className="timeline-assignee" title={getUserName(task.assignee_id)}>
+                              {getInitials(getUserName(task.assignee_id))}
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                      <div className="timeline-task-dates">
+                        <span>{formatDateShort(task.start_date)}</span>
+                        <span className="timeline-date-sep">–</span>
+                        <span>{formatDateShort(task.due_date)}</span>
+                        {(task.start_time || task.end_time) && (
+                          <span className="timeline-task-times">{task.start_time || '—'}–{task.end_time || '—'}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="timeline-row-right" style={{ width: timelineWidth }}>
                       {barStyle && (
                         <div
                           className="timeline-bar"
@@ -317,11 +307,11 @@ export default function TimelineView({ tasks, users, onTaskClick }) {
                         </div>
                       )}
                     </div>
-                  );
-                })}
-              </React.Fragment>
-            ))}
-          </div>
+                  </div>
+                );
+              })}
+            </React.Fragment>
+          ))}
         </div>
       </div>
     </div>

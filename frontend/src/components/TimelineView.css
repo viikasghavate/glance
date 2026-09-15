@@ -17,28 +17,30 @@
 }
 
 .timeline-inner {
+  position: relative;
   min-height: 100%;
   display: flex;
+  flex-direction: column;
   align-items: flex-start;
 }
 
-/* Fixed left pane: stays in place while the right pane scrolls horizontally */
-.timeline-left-col {
+/* Sticky top header: left "Task" title + right month/day headers */
+.timeline-header {
   position: sticky;
-  left: 0;
-  z-index: 5;
-  width: 320px;
-  min-width: 320px;
+  top: 0;
+  z-index: 6;
+  display: flex;
+  align-items: stretch;
   flex-shrink: 0;
-  background: var(--bg-card-solid);
-  border-right: 1px solid var(--border);
-  box-shadow: 4px 0 12px rgba(0, 0, 0, 0.35);
 }
 
 .timeline-left-header {
   position: sticky;
-  top: 0;
+  left: 0;
   z-index: 6;
+  width: 320px;
+  min-width: 320px;
+  flex-shrink: 0;
   height: 56px;
   min-height: 56px;
   display: flex;
@@ -48,6 +50,7 @@
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
 }
 
 .timeline-left-title {
@@ -59,7 +62,19 @@
   font-family: 'Orbitron', 'Space Grotesk', sans-serif;
 }
 
+.timeline-group-header {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+
 .timeline-group-header-left-cell {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  width: 320px;
+  min-width: 320px;
+  flex-shrink: 0;
   height: 32px;
   min-height: 32px;
   display: flex;
@@ -72,6 +87,7 @@
   color: var(--text-muted);
   background: rgba(10, 14, 23, 0.9);
   border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
   font-family: 'Orbitron', 'Space Grotesk', sans-serif;
 }
 
@@ -82,11 +98,10 @@
 }
 
 .timeline-right-header {
-  position: sticky;
-  top: 0;
-  z-index: 3;
+  position: relative;
   height: 56px;
   min-height: 56px;
+  flex-shrink: 0;
 }
 
 .timeline-month {
@@ -149,11 +164,26 @@
 .timeline-group-header-right-cell {
   height: 32px;
   min-height: 32px;
+  flex-shrink: 0;
   background: rgba(10, 14, 23, 0.9);
   border-bottom: 1px solid var(--border);
 }
 
+/* Single row per task: name segment + bar segment share the same row */
+.timeline-row {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
 .timeline-row-left {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  width: 320px;
+  min-width: 320px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -161,7 +191,7 @@
   padding: 0.5rem 0.75rem;
   border-bottom: 1px solid rgba(0, 229, 255, 0.04);
   background: var(--bg-card-solid);
-  cursor: pointer;
+  border-right: 1px solid var(--border);
   transition: background 0.1s;
 }
 
@@ -171,6 +201,7 @@
 
 .timeline-row-right {
   position: relative;
+  flex-shrink: 0;
   min-height: 40px;
   display: flex;
   align-items: center;
