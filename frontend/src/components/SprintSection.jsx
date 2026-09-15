@@ -2,6 +2,20 @@ import { useState } from 'react';
 
 const STATUS_LABELS = { planned: 'Planned', active: 'Active', completed: 'Completed' };
 
+function ProgressBar({ done, total }) {
+  const doneCount = done || 0;
+  const totalCount = total || 0;
+  const pct = totalCount ? Math.min(100, Math.max(0, Math.round((doneCount / totalCount) * 100))) : 0;
+  return (
+    <div className="progress-row">
+      <div className="progress-bar">
+        <div className="progress-fill" style={{ width: `${pct}%` }} />
+      </div>
+      <span className="progress-label">{doneCount} / {totalCount} done</span>
+    </div>
+  );
+}
+
 export default function SprintSection({ projectId, sprints, onRefresh, apiFetch, readOnly }) {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -87,6 +101,7 @@ export default function SprintSection({ projectId, sprints, onRefresh, apiFetch,
                 </span>
                 <span className="sprint-count">{s.task_count} tasks</span>
               </div>
+              <ProgressBar done={s.done_count} total={s.task_count} />
               {s.goal && <div className="sprint-goal">{s.goal}</div>}
               {(s.start_date || s.end_date) && (
                 <div className="sprint-dates">

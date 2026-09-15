@@ -16,7 +16,9 @@ function isValidDate(value) {
 
 function getSprint(id) {
   return db.prepare(`
-    SELECT s.*, (SELECT COUNT(*) FROM tasks t WHERE t.sprint_id = s.id AND t.deleted_at IS NULL) as task_count
+    SELECT s.*,
+      (SELECT COUNT(*) FROM tasks t WHERE t.sprint_id = s.id AND t.deleted_at IS NULL) as task_count,
+      (SELECT COUNT(*) FROM tasks t WHERE t.sprint_id = s.id AND t.deleted_at IS NULL AND t.status = 'done') as done_count
     FROM sprints s
     WHERE s.id = ?
   `).get(id);
@@ -28,7 +30,9 @@ router.get('/projects/:projectId/sprints', (req, res) => {
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
   const sprints = db.prepare(`
-    SELECT s.*, (SELECT COUNT(*) FROM tasks t WHERE t.sprint_id = s.id AND t.deleted_at IS NULL) as task_count
+    SELECT s.*,
+      (SELECT COUNT(*) FROM tasks t WHERE t.sprint_id = s.id AND t.deleted_at IS NULL) as task_count,
+      (SELECT COUNT(*) FROM tasks t WHERE t.sprint_id = s.id AND t.deleted_at IS NULL AND t.status = 'done') as done_count
     FROM sprints s
     WHERE s.project_id = ?
     ORDER BY s.start_date ASC, s.id ASC

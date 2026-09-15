@@ -16,7 +16,9 @@ function isValidDate(value) {
 
 function getMilestone(id) {
   return db.prepare(`
-    SELECT m.*, (SELECT COUNT(*) FROM tasks t WHERE t.milestone_id = m.id AND t.deleted_at IS NULL) as task_count
+    SELECT m.*,
+      (SELECT COUNT(*) FROM tasks t WHERE t.milestone_id = m.id AND t.deleted_at IS NULL) as task_count,
+      (SELECT COUNT(*) FROM tasks t WHERE t.milestone_id = m.id AND t.deleted_at IS NULL AND t.status = 'done') as done_count
     FROM milestones m
     WHERE m.id = ?
   `).get(id);
@@ -28,7 +30,9 @@ router.get('/projects/:projectId/milestones', (req, res) => {
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
   const milestones = db.prepare(`
-    SELECT m.*, (SELECT COUNT(*) FROM tasks t WHERE t.milestone_id = m.id AND t.deleted_at IS NULL) as task_count
+    SELECT m.*,
+      (SELECT COUNT(*) FROM tasks t WHERE t.milestone_id = m.id AND t.deleted_at IS NULL) as task_count,
+      (SELECT COUNT(*) FROM tasks t WHERE t.milestone_id = m.id AND t.deleted_at IS NULL AND t.status = 'done') as done_count
     FROM milestones m
     WHERE m.project_id = ?
     ORDER BY m.due_date ASC, m.id ASC

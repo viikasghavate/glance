@@ -2,6 +2,20 @@ import { useState } from 'react';
 
 const STATUS_LABELS = { open: 'Open', completed: 'Completed' };
 
+function ProgressBar({ done, total }) {
+  const doneCount = done || 0;
+  const totalCount = total || 0;
+  const pct = totalCount ? Math.min(100, Math.max(0, Math.round((doneCount / totalCount) * 100))) : 0;
+  return (
+    <div className="progress-row">
+      <div className="progress-bar">
+        <div className="progress-fill" style={{ width: `${pct}%` }} />
+      </div>
+      <span className="progress-label">{doneCount} / {totalCount} done</span>
+    </div>
+  );
+}
+
 export default function MilestoneSection({ projectId, milestones, onRefresh, apiFetch, readOnly }) {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -84,6 +98,7 @@ export default function MilestoneSection({ projectId, milestones, onRefresh, api
                 </span>
                 <span className="sprint-count">{m.task_count} tasks</span>
               </div>
+              <ProgressBar done={m.done_count} total={m.task_count} />
               {m.description && <div className="sprint-goal">{m.description}</div>}
               {m.due_date && <div className="sprint-dates"><span>Due: {m.due_date}</span></div>}
               {!readOnly && (
