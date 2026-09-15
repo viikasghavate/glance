@@ -38,6 +38,19 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
     setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const collapseAll = () => {
+    const parentIds = COLUMNS.flatMap(col => getTasks(col.key)).filter(t => t.hasChildren).map(t => t.id);
+    setCollapsed(prev => {
+      const next = { ...prev };
+      parentIds.forEach(id => { next[id] = true; });
+      return next;
+    });
+  };
+
+  const expandAll = () => {
+    setCollapsed({});
+  };
+
   const tree = useMemo(() => {
     const taskMap = {};
     const roots = [];
@@ -186,6 +199,8 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
           <option value="today">Due Today</option>
           <option value="week">Due This Week</option>
         </select>
+        <button type="button" className="btn-ghost btn-sm" onClick={collapseAll} title="Collapse all subtasks">Collapse all</button>
+        <button type="button" className="btn-ghost btn-sm" onClick={expandAll} title="Expand all subtasks">Expand all</button>
       </div>
       {COLUMNS.map(col => {
         const colTasks = getTasks(col.key);

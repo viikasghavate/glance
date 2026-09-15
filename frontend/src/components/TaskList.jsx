@@ -84,6 +84,19 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
     setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const collapseAll = () => {
+    const parentIds = filtered.filter(t => t.hasChildren).map(t => t.id);
+    setCollapsed(prev => {
+      const next = { ...prev };
+      parentIds.forEach(id => { next[id] = true; });
+      return next;
+    });
+  };
+
+  const expandAll = () => {
+    setCollapsed({});
+  };
+
   const tree = useMemo(() => {
     const taskMap = {};
     const roots = [];
@@ -255,6 +268,8 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
         >
           {sortDir === 'asc' ? '↑' : '↓'}
         </button>
+        <button type="button" className="btn-ghost btn-sm" onClick={collapseAll} title="Collapse all subtasks">Collapse all</button>
+        <button type="button" className="btn-ghost btn-sm" onClick={expandAll} title="Expand all subtasks">Expand all</button>
       </div>
 
       {filtered.length === 0 ? (
