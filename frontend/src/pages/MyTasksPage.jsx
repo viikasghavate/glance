@@ -12,12 +12,35 @@ const statusMeta = {
 
 const statusLabel = (s) => (statusMeta[s] ? statusMeta[s].label : s);
 
+const todayStr = () => {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
+
+const inDueWeek = (due, today) => {
+  if (!due) return false;
+  if (String(due) < today) return false;
+  const end = new Date(today + 'T00:00:00');
+  end.setDate(end.getDate() + 6);
+  const p = n => String(n).padStart(2, '0');
+  const endStr = `${end.getFullYear()}-${p(end.getMonth() + 1)}-${p(end.getDate())}`;
+  return String(due) <= endStr;
+};
+
+const priorityIndex = { low: 0, medium: 1, high: 2 };
+const statusIndex = { todo: 0, in_progress: 1, done: 2 };
+
 export default function MyTasksPage() {
   const { apiFetch } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('');
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState('');
+  const [sortDir, setSortDir] = useState('asc');
+  const [dueFilter, setDueFilter] = useState('');
 
   useEffect(() => {
     apiFetch('/tasks/mine')
@@ -40,10 +63,67 @@ export default function MyTasksPage() {
   }, [tasks, today]);
 
   const filtered = useMemo(() => {
-    if (!filter) return tasks;
-    if (filter === 'overdue') return tasks.filter(t => isOverdue(t.due_date, t.status, today));
-    return tasks.filter(t => t.status === filter);
-  }, [tasks, filter, today]);
+    const query = search.trim().toLowerCase();
+    let result = tasks;
+
+    if (filter === 'overdue') {
+      result = result.filter(t => isOverdue(t.due_date, t.status, today));
+    } else if (filter) {
+      result = result.filter(t => t.status === filter);
+    }
+
+    if (dueFilter === 'overdue') {
+      result = result.filter(t => isOverdue(t.due_date, t.status, today));
+    } else if (dueFilter === 'today') {
+      result = result.filter(t => t.due_date && String(t.due_date) === todayStr());
+    } else if (dueFilter === 'week') {
+      result = result.filter(t => inDueWeek(t.due_date, todayStr()));
+    }
+
+    if (query) {
+      result = result.filter(t => {
+        const labelNames = (t.labelList || []).map(l => l.name).join(' ');
+        const haystack = `${t.title || ''} ${t.description || ''} ${t.project_name || ''} ${labelNames}`.toLowerCase();
+        return haystack.includes(query);
+      });
+    }
+
+    if (sortBy) {
+      const sorted = [...result].sort((a, b) => {
+        if (sortBy === 'priority') {
+          const ai = priorityIndex[a.priority] ?? 0;
+          const bi = priorityIndex[b.priority] ?? 0;
+          const cmp = ai - bi;
+          return cmp !== 0 ? (sortDir === 'desc' ? -cmp : cmp) : 0;
+        }
+        if (sortBy === 'due_date') {
+          const ad = a.due_date ? String(a.due_date) : null;
+          const bd = b.due_date ? String(b.due_date) : null;
+          if (ad === null && bd === null) return 0;
+          if (ad === null) return 1;
+          if (bd === null) return -1;
+          const cmp = ad < bd ? -1 : ad > bd ? 1 : 0;
+          return sortDir === 'desc' ? -cmp : cmp;
+        }
+        if (sortBy === 'status') {
+          const ai = statusIndex[a.status] ?? 0;
+          const bi = statusIndex[b.status] ?? 0;
+          const cmp = ai - bi;
+          return cmp !== 0 ? (sortDir === 'desc' ? -cmp : cmp) : 0;
+        }
+        if (sortBy === 'title') {
+          const av = (a.title || '').toLowerCase();
+          const bv = (b.title || '').toLowerCase();
+          const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+          return sortDir === 'desc' ? -cmp : cmp;
+        }
+        return 0;
+      });
+      result = sorted;
+    }
+
+    return result;
+  }, [tasks, filter, search, sortBy, sortDir, dueFilter, today]);
 
   if (loading) return <div className="loading"><div className="spinner" /></div>;
   if (error) return <div className="error-msg">{error}</div>;
@@ -52,6 +132,38 @@ export default function MyTasksPage() {
     <div className="my-tasks">
       <div className="page-header">
         <h1>My Tasks</h1>
+      </div>
+
+      <div className="my-tasks-toolbar">
+        <input
+          className="my-tasks-search"
+          type="text"
+          placeholder="Search your tasks…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
+          <option value="">Sort by: None</option>
+          <option value="priority">Sort by: Priority</option>
+          <option value="due_date">Sort by: Due Date</option>
+          <option value="status">Sort by: Status</option>
+          <option value="title">Sort by: Title</option>
+        </select>
+        <button
+          type="button"
+          className="sort-toggle"
+          disabled={!sortBy}
+          onClick={() => setSortDir(dir => (dir === 'asc' ? 'desc' : 'asc'))}
+          title={sortDir === 'asc' ? 'Sort: Ascending' : 'Sort: Descending'}
+        >
+          {sortDir === 'asc' ? '▲' : '▼'}
+        </button>
+        <select value={dueFilter} onChange={e => setDueFilter(e.target.value)}>
+          <option value="">All Due</option>
+          <option value="overdue">Overdue</option>
+          <option value="today">Due Today</option>
+          <option value="week">Due This Week</option>
+        </select>
       </div>
 
       <div className="my-tasks-chips">
