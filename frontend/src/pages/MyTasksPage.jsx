@@ -41,6 +41,8 @@ export default function MyTasksPage() {
   const [sortBy, setSortBy] = useState('');
   const [sortDir, setSortDir] = useState('asc');
   const [dueFilter, setDueFilter] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('');
+  const [assigneeFilter, setAssigneeFilter] = useState('');
 
   useEffect(() => {
     apiFetch('/tasks/mine')
@@ -61,6 +63,19 @@ export default function MyTasksPage() {
     });
     return c;
   }, [tasks, today]);
+
+  const assigneeOptions = useMemo(() => {
+    const map = new Map();
+    tasks.forEach(t => {
+      if (t.assignee_id == null) return;
+      const name = t.assignee_name || String(t.assignee_id);
+      const existing = map.get(t.assignee_id);
+      if (!existing) {
+        map.set(t.assignee_id, { id: t.assignee_id, name });
+      }
+    });
+    return [...map.values()].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  }, [tasks]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -86,6 +101,14 @@ export default function MyTasksPage() {
         const haystack = `${t.title || ''} ${t.description || ''} ${t.project_name || ''} ${labelNames}`.toLowerCase();
         return haystack.includes(query);
       });
+    }
+
+    if (priorityFilter) {
+      result = result.filter(t => t.priority === priorityFilter);
+    }
+
+    if (assigneeFilter) {
+      result = result.filter(t => String(t.assignee_id) === String(assigneeFilter));
     }
 
     if (sortBy) {
@@ -123,7 +146,7 @@ export default function MyTasksPage() {
     }
 
     return result;
-  }, [tasks, filter, search, sortBy, sortDir, dueFilter, today]);
+  }, [tasks, filter, search, sortBy, sortDir, dueFilter, priorityFilter, assigneeFilter, today]);
 
   if (loading) return <div className="loading"><div className="spinner" /></div>;
   if (error) return <div className="error-msg">{error}</div>;
@@ -163,6 +186,18 @@ export default function MyTasksPage() {
           <option value="overdue">Overdue</option>
           <option value="today">Due Today</option>
           <option value="week">Due This Week</option>
+        </select>
+        <select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)}>
+          <option value="">All Priorities</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+        <select value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)}>
+          <option value="">All Assignees</option>
+          {assigneeOptions.map(a => (
+            <option key={a.id} value={a.id}>{a.name}</option>
+          ))}
         </select>
       </div>
 
