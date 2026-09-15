@@ -352,6 +352,26 @@
   color: var(--text-muted);
 }
 
+.search-kbd-hint {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  pointer-events: none;
+}
+
+.search-kbd-hint kbd {
+  font-size: 0.625rem;
+  font-family: 'Orbitron', 'Space Grotesk', sans-serif;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.125rem 0.375rem;
+  line-height: 1;
+}
+
 .search-dropdown {
   position: absolute;
   top: 100%;

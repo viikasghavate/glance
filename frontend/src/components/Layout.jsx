@@ -207,7 +207,10 @@ export default function Layout() {
   const [searchResults, setSearchResults] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchRef = useRef(null);
+  const searchInputRef = useRef(null);
   const debounceRef = useRef(null);
+  const searchOpenRef = useRef(searchOpen);
+  const hasSearchResultsRef = useRef(false);
 
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -321,8 +324,25 @@ export default function Layout() {
       }
     };
     const handleKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        if (hasSearchResultsRef.current) setSearchOpen(true);
+        return;
+      }
+      if (e.key === '/' && !isTextEntryTarget(e.target)) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        if (hasSearchResultsRef.current) setSearchOpen(true);
+        return;
+      }
       if (e.key === 'Escape') {
-        setSearchOpen(false);
+        if (searchOpenRef.current) {
+          setSearchOpen(false);
+        } else if (document.activeElement === searchInputRef.current) {
+          setSearchQuery('');
+          searchInputRef.current?.blur();
+        }
         setNotifOpen(false);
       }
     };
@@ -334,11 +354,30 @@ export default function Layout() {
     };
   }, []);
 
+  useEffect(() => {
+    searchOpenRef.current = searchOpen;
+  }, [searchOpen]);
+
+  useEffect(() => {
+    hasSearchResultsRef.current = hasSearchResults;
+  }, [hasSearchResults]);
+
   const handleSearchSelect = (path) => {
     setSearchOpen(false);
     setSearchQuery('');
     setSearchResults(null);
     navigate(path);
+  };
+
+  const isTextEntryTarget = (target) => {
+    if (!target) return false;
+    const tag = target.tagName;
+    return (
+      tag === 'INPUT' ||
+      tag === 'TEXTAREA' ||
+      tag === 'SELECT' ||
+      target.isContentEditable
+    );
   };
 
   const hasSearchResults = searchResults &&
@@ -456,6 +495,7 @@ export default function Layout() {
                 <IconSearch />
               </span>
               <input
+                ref={searchInputRef}
                 type="text"
                 className="search-input"
                 placeholder="Search projects, tasks, comments..."
@@ -464,6 +504,9 @@ export default function Layout() {
                 onFocus={() => { if (hasSearchResults) setSearchOpen(true); }}
                 style={{ paddingLeft: '1.75rem' }}
               />
+              {!searchQuery && (
+                <span className="search-kbd-hint"><kbd>⌘K</kbd></span>
+              )}
               {searchOpen && (
                 <div className="search-dropdown">
                   {!hasSearchResults ? (
