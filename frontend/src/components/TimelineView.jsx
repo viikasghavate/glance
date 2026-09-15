@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react';
 import './TimelineView.css';
+import { dueInfo } from './overdue';
 
 const DAY_MS = 86400000;
 const STATUS_COLORS = {
@@ -291,6 +292,12 @@ export default function TimelineView({ tasks, users, onTaskClick }) {
                           {task.blockedBy && task.blockedBy.some(d => d.status !== 'done') && (
                             <span className="blocked-badge" title="Blocked by incomplete dependencies">⛔</span>
                           )}
+                          {(() => {
+                            const info = dueInfo(task.due_date, task.status);
+                            if (!info) return null;
+                            const cls = info.overdue ? 'due-chip due-chip-overdue' : (info.days === 0 ? 'due-chip due-chip-today' : 'due-chip');
+                            return <span className={cls}>{info.label}</span>;
+                          })()}
                         </span>
                       </div>
                       <div className="timeline-task-dates">
