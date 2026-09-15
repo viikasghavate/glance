@@ -296,7 +296,7 @@ export default function DashboardPage() {
               <div className="empty">No overdue tasks</div>
             ) : (
               data.overdueTasks.map(t => (
-                <Link key={t.id} to={`/project/${t.project_id}`} className="task-row overdue">
+                <Link key={t.id} to={`/project/${t.project_id}?task=${t.id}`} className="task-row overdue">
                   <div className="task-row-title">{t.title}</div>
                   <div className="task-row-meta">
                     <span className="task-row-project">{t.project_name}</span>
