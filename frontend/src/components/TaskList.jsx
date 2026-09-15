@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import './TaskList.css';
-import { isOverdue } from './overdue';
+import { isOverdue, dueInfo } from './overdue';
 
 const todayStr = () => {
   const d = new Date();
@@ -332,6 +332,12 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
                   {task.due_date ? (
                     <span className={isOverdue(task.due_date, task.status) ? 'due-date overdue' : 'due-date'}>{task.due_date}</span>
                   ) : '-'}
+                  {(() => {
+                    const info = dueInfo(task.due_date, task.status);
+                    if (!info) return null;
+                    const cls = info.overdue ? 'due-chip due-chip-overdue' : (info.days === 0 ? 'due-chip due-chip-today' : 'due-chip');
+                    return <span className={cls}>{info.label}</span>;
+                  })()}
                 </div>
                 <div className="task-table-cell date-cell">{task.estimated_hours != null ? `${task.estimated_hours}h` : '-'}</div>
                 <div className="task-table-cell date-cell">{task.time_spent != null ? `${task.time_spent}h` : '-'}</div>

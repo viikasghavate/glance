@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import './KanbanBoard.css';
-import { isOverdue } from './overdue';
+import { isOverdue, dueInfo } from './overdue';
 
 const todayStr = () => {
   const d = new Date();
@@ -251,14 +251,20 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
                     {task.assignee_name && (
                       <span className="assignee">{task.assignee_name}</span>
                     )}
-                    {task.due_date && (
-                      <>
-                        <span className="due-date">{task.due_date}</span>
-                        {isOverdue(task.due_date, task.status) && (
-                          <span className="overdue-chip">⚠ Overdue</span>
-                        )}
-                      </>
-                    )}
+    {task.due_date && (
+      <>
+        <span className="due-date">{task.due_date}</span>
+        {(() => {
+          const info = dueInfo(task.due_date, task.status);
+          if (!info) return null;
+          const cls = info.overdue ? 'due-chip due-chip-overdue' : (info.days === 0 ? 'due-chip due-chip-today' : 'due-chip');
+          return <span className={cls}>{info.label}</span>;
+        })()}
+        {isOverdue(task.due_date, task.status) && (
+          <span className="overdue-chip">⚠ Overdue</span>
+        )}
+      </>
+    )}
                     {task.estimated_hours != null && (
                       <span className="est-hours">{task.estimated_hours}h</span>
                     )}
