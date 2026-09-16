@@ -126,7 +126,7 @@ const IconActivity = () => (
 );
 
 const NAV_STORAGE_KEY = 'glance_nav_apps';
-const DEFAULT_APPS = { Projects: true, Workspace: true, People: false, Admin: false, ProjectsTree: false };
+const DEFAULT_APPS = { Projects: true, Workspace: true, People: false, Admin: false };
 
 function loadExpandedApps() {
   try {
@@ -143,69 +143,10 @@ function loadExpandedApps() {
   }
 }
 
-function ProjectNavGroups({ projects, portfolios, programs, currentProjectId }) {
-  const ungrouped = [];
-
-  for (const p of projects) {
-    if (!p.program_id && !p.portfolio_id) ungrouped.push(p);
-  }
-
-  const renderProject = (p) => {
-    const openTasks = (p.taskCounts?.todo || 0) + (p.taskCounts?.in_progress || 0);
-    return (
-      <Link
-        key={p.id}
-        to={`/project/${p.id}`}
-        className={`project-nav-item ${currentProjectId === String(p.id) ? 'active' : ''}`}
-      >
-        <span className="project-nav-dot" style={{ background: p.color }} />
-        <span className="project-nav-name">{p.name}</span>
-        {openTasks > 0 && <span className="project-nav-badge">{openTasks}</span>}
-      </Link>
-    );
-  };
-
-  return (
-    <>
-      {portfolios.map(pf => {
-        const pfPrograms = programs.filter(pr => pr.portfolio_id === pf.id);
-        const directProjects = projects.filter(p => p.portfolio_id === pf.id && !p.program_id);
-        const programIds = new Set(pfPrograms.map(pr => pr.id));
-        const viaProgramProjects = projects.filter(p => programIds.has(p.program_id));
-        const hasContent = pfPrograms.length > 0 || directProjects.length > 0 || viaProgramProjects.length > 0;
-        if (!hasContent) return null;
-
-        return (
-          <div key={pf.id} className="nav-group">
-            <div className="nav-group-label" style={{ color: pf.color }}>
-              <span className="nav-group-dot" style={{ background: pf.color }} />
-              {pf.name}
-            </div>
-            {pfPrograms.map(pr => (
-              <div key={pr.id} className="nav-subgroup">
-                <div className="nav-subgroup-label">{pr.name}</div>
-                {projects.filter(p => p.program_id === pr.id).map(renderProject)}
-              </div>
-            ))}
-            {directProjects.map(renderProject)}
-          </div>
-        );
-      })}
-
-      {ungrouped.length > 0 && (
-        <div className="nav-group">
-          <div className="nav-group-label nav-group-label-muted">Projects</div>
-          {ungrouped.map(renderProject)}
-        </div>
-      )}
-    </>
-  );
-}
-
 export default function Layout() {
   const { user, logout, apiFetch, hasRole } = useAuth();
   const {
-    projects, projectsLoading, refreshProjects,
+    refreshProjects,
     showProjectModal, openNewProjectModal, closeProjectModal,
     editingProject, setEditingProject,
     view, setView, breadcrumb, users,
@@ -290,7 +231,6 @@ export default function Layout() {
 
   const isHome = location.pathname === '/';
   const isProjectPage = location.pathname.startsWith('/project/');
-  const currentProjectId = isProjectPage ? location.pathname.split('/')[2] : null;
 
   const toggleApp = (app) => {
     setExpandedApps(prev => ({ ...prev, [app]: !prev[app] }));
@@ -315,6 +255,7 @@ export default function Layout() {
       modules: [
         { label: 'Dashboard', to: '/' },
         { label: 'Activity', to: '/activity' },
+        { label: 'Programs', to: '/ports' },
         { label: 'Portfolios', to: '/ports' },
       ],
     },
@@ -380,10 +321,6 @@ export default function Layout() {
     if (!name) return '?';
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
-
-  const filteredProjects = searchQuery
-    ? projects.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    : projects;
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -566,34 +503,6 @@ export default function Layout() {
               </div>
             );
           })}
-
-          <div className="nav-app">
-            <button className="nav-app-header" onClick={() => toggleApp('ProjectsTree')}>
-              <span className={`nav-app-caret ${!!expandedApps.ProjectsTree ? 'open' : ''}`}>
-                <IconChevronRight />
-              </span>
-              <span className="nav-app-title">Projects</span>
-              <span className="project-nav-section-count">{projects.length}</span>
-            </button>
-            {expandedApps.ProjectsTree && (
-              <div className="nav-app-body">
-                {projectsLoading ? (
-                  <div className="loading" style={{ padding: '1rem' }}><div className="spinner" /></div>
-                ) : filteredProjects.length === 0 ? (
-                  <div className="empty" style={{ padding: '1rem', fontSize: '0.75rem' }}>
-                    {searchQuery ? 'No matching projects' : 'No projects yet'}
-                  </div>
-                ) : (
-                  <ProjectNavGroups
-                    projects={filteredProjects}
-                    portfolios={portfolios}
-                    programs={programs}
-                    currentProjectId={currentProjectId}
-                  />
-                )}
-              </div>
-            )}
-          </div>
         </div>
 
         {!hasRole('viewer') && (
