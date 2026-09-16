@@ -22,12 +22,12 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-router.get('/task/:taskId', (req, res) => {
+router.get('/task/:taskId', async (req, res) => {
   const { taskId } = req.params;
-  const task = db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(taskId);
+  const task = await db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(taskId);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
-  const attachments = db.prepare(`
+  const attachments = await db.prepare(`
     SELECT a.*, u.name as uploader_name
     FROM attachments a
     LEFT JOIN users u ON u.id = a.uploaded_by
@@ -37,9 +37,9 @@ router.get('/task/:taskId', (req, res) => {
   res.json(attachments);
 });
 
-router.post('/task/:taskId', requireRole('admin', 'member'), upload.single('file'), (req, res) => {
+router.post('/task/:taskId', requireRole('admin', 'member'), upload.single('file'), async (req, res) => {
   const { taskId } = req.params;
-  const task = db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(taskId);
+  const task = await db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(taskId);
   if (!task) {
     if (req.file) fs.unlinkSync(req.file.path);
     return res.status(404).json({ error: 'Task not found' });
@@ -49,7 +49,7 @@ router.post('/task/:taskId', requireRole('admin', 'member'), upload.single('file
     return res.status(400).json({ error: 'file is required' });
   }
 
-  const result = db.prepare(
+  const result = await db.prepare(
     'INSERT INTO attachments (task_id, filename, stored_path, size, mime_type, uploaded_by) VALUES (?, ?, ?, ?, ?, ?)'
   ).run(
     taskId,
@@ -60,13 +60,13 @@ router.post('/task/:taskId', requireRole('admin', 'member'), upload.single('file
     req.user.id || null
   );
 
-  const attachment = db.prepare('SELECT * FROM attachments WHERE id = ?').get(result.lastInsertRowid);
+  const attachment = await db.prepare('SELECT * FROM attachments WHERE id = ?').get(result.lastInsertRowid);
   res.status(201).json(attachment);
 });
 
-router.get('/:id/download', (req, res) => {
+router.get('/:id/download', async (req, res) => {
   const { id } = req.params;
-  const attachment = db.prepare('SELECT * FROM attachments WHERE id = ?').get(id);
+  const attachment = await db.prepare('SELECT * FROM attachments WHERE id = ?').get(id);
   if (!attachment) return res.status(404).json({ error: 'Attachment not found' });
 
   const filePath = path.join(uploadsDir, attachment.stored_path);
@@ -75,12 +75,12 @@ router.get('/:id/download', (req, res) => {
   res.download(filePath, attachment.filename);
 });
 
-router.delete('/:id', requireRole('admin', 'member'), (req, res) => {
+router.delete('/:id', requireRole('admin', 'member'), async (req, res) => {
   const { id } = req.params;
-  const attachment = db.prepare('SELECT * FROM attachments WHERE id = ?').get(id);
+  const attachment = await db.prepare('SELECT * FROM attachments WHERE id = ?').get(id);
   if (!attachment) return res.status(404).json({ error: 'Attachment not found' });
 
-  db.prepare('DELETE FROM attachments WHERE id = ?').run(id);
+  await db.prepare('DELETE FROM attachments WHERE id = ?').run(id);
 
   const filePath = path.join(uploadsDir, attachment.stored_path);
   if (fs.existsSync(filePath)) {
