@@ -124,6 +124,7 @@ export default function ActivityLogPage() {
   const [entityType, setEntityType] = useState('');
   const [limit, setLimit] = useState(PAGE_SIZE);
   const [hasMore, setHasMore] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const prevEntityRef = useRef('');
 
   const load = useCallback(async (type, reset) => {
@@ -173,6 +174,34 @@ export default function ActivityLogPage() {
     setLimit(prev => Math.min(prev + PAGE_SIZE, 200));
   };
 
+  const handleExportCsv = async () => {
+    setExporting(true);
+    try {
+      const token = localStorage.getItem('token');
+      const query = entityType ? `?entity_type=${encodeURIComponent(entityType)}` : '';
+      const res = await fetch(`/api/activity/export${query}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        throw new Error('Export failed.');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'activity-log.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      alert('Export failed.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="activity-log">
       <div className="page-header">
@@ -189,6 +218,13 @@ export default function ActivityLogPage() {
             <option key={f.value} value={f.value}>{f.label}</option>
           ))}
         </select>
+        <button
+          className="btn-ghost"
+          onClick={handleExportCsv}
+          disabled={exporting}
+        >
+          {exporting ? 'Exporting...' : 'Export CSV'}
+        </button>
       </div>
 
       {error && <div className="error-msg">{error}</div>}
