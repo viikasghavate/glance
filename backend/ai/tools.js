@@ -17,8 +17,8 @@ const tools = [
       properties: {},
       required: []
     },
-    handler: () => {
-      const projects = db.prepare(`
+    handler: async () => {
+      const projects = await db.prepare(`
         SELECT p.id, p.name, p.description, p.status, p.priority, p.progress,
                p.start_date, p.due_date, u.name as owner_name
         FROM projects p
@@ -26,7 +26,7 @@ const tools = [
         WHERE p.archived = 0 AND p.deleted_at IS NULL
         ORDER BY p.created_at DESC
       `).all();
-      const counts = db.prepare(`
+      const counts = await db.prepare(`
         SELECT project_id, status, COUNT(*) as count
         FROM tasks
         WHERE deleted_at IS NULL AND archived = 0
@@ -50,15 +50,15 @@ const tools = [
       },
       required: ['id']
     },
-    handler: (user, args) => {
-      const project = db.prepare(`
+    handler: async (user, args) => {
+      const project = await db.prepare(`
         SELECT p.*, u.name as owner_name
         FROM projects p
         LEFT JOIN users u ON p.owner_id = u.id
         WHERE p.id = ? AND p.deleted_at IS NULL
       `).get(args.id);
       if (!project) return { error: 'Project not found' };
-      const counts = db.prepare(`
+      const counts = await db.prepare(`
         SELECT status, COUNT(*) as count
         FROM tasks
         WHERE project_id = ? AND deleted_at IS NULL AND archived = 0
@@ -81,13 +81,13 @@ const tools = [
       },
       required: []
     },
-    handler: (user, args) => {
+    handler: async (user, args) => {
       const conditions = ['t.deleted_at IS NULL', 't.archived = 0'];
       const values = [];
       if (args.project_id != null) { conditions.push('t.project_id = ?'); values.push(args.project_id); }
       if (args.status != null) { conditions.push('t.status = ?'); values.push(args.status); }
       if (args.assignee_id != null) { conditions.push('t.assignee_id = ?'); values.push(args.assignee_id); }
-      return db.prepare(`
+      return await db.prepare(`
         SELECT t.id, t.title, t.status, t.priority, t.due_date, t.project_id,
                p.name as project_name, u.name as assignee_name
         FROM tasks t
@@ -108,8 +108,8 @@ const tools = [
       },
       required: ['id']
     },
-    handler: (user, args) => {
-      const task = db.prepare(`
+    handler: async (user, args) => {
+      const task = await db.prepare(`
         SELECT t.*, u.name as assignee_name, p.name as project_name,
                s.name as sprint_name, m.name as milestone_name
         FROM tasks t
@@ -120,16 +120,17 @@ const tools = [
         WHERE t.id = ? AND t.deleted_at IS NULL
       `).get(args.id);
       if (!task) return { error: 'Task not found' };
-      const checklist = db.prepare(
+      const checklist = await db.prepare(
         'SELECT COUNT(*) as total, COALESCE(SUM(completed), 0) as completed FROM task_checklist WHERE task_id = ?'
       ).get(args.id);
-      const labels = db.prepare(`
+      const labels = await db.prepare(`
         SELECT l.name FROM labels l
         JOIN task_labels tl ON tl.label_id = l.id
         WHERE tl.task_id = ?
         ORDER BY l.name ASC
-      `).all(args.id).map(r => r.name);
-      return { ...task, labels, checklist_progress: { total: checklist.total, completed: checklist.completed || 0 } };
+      `).all(args.id);
+      const labelList = labels.map(r => r.name);
+      return { ...task, labels: labelList, checklist_progress: { total: checklist.total, completed: checklist.completed || 0 } };
     }
   },
   {
@@ -142,7 +143,7 @@ const tools = [
       },
       required: ['project_id']
     },
-    handler: (user, args) => db.prepare(`
+    handler: async (user, args) => await db.prepare(`
       SELECT s.*, (SELECT COUNT(*) FROM tasks t WHERE t.sprint_id = s.id AND t.deleted_at IS NULL) as task_count
       FROM sprints s
       WHERE s.project_id = ?
@@ -159,7 +160,7 @@ const tools = [
       },
       required: ['project_id']
     },
-    handler: (user, args) => db.prepare(`
+    handler: async (user, args) => await db.prepare(`
       SELECT m.*, (SELECT COUNT(*) FROM tasks t WHERE t.milestone_id = m.id AND t.deleted_at IS NULL) as task_count
       FROM milestones m
       WHERE m.project_id = ?
@@ -176,23 +177,23 @@ const tools = [
       },
       required: ['q']
     },
-    handler: (user, args) => {
+    handler: async (user, args) => {
       const q = String(args.q || '').trim();
       if (q.length < 2) return { projects: [], tasks: [], comments: [] };
       const like = `%${q}%`;
-      const projects = db.prepare(`
+      const projects = await db.prepare(`
         SELECT id, name, color FROM projects
         WHERE deleted_at IS NULL AND (name LIKE ? OR description LIKE ?)
         ORDER BY name ASC LIMIT 10
       `).all(like, like);
-      const tasks = db.prepare(`
+      const tasks = await db.prepare(`
         SELECT t.id, t.title, t.project_id, p.name as project_name, t.status
         FROM tasks t
         LEFT JOIN projects p ON p.id = t.project_id
         WHERE t.deleted_at IS NULL AND (t.title LIKE ? OR t.description LIKE ? OR t.labels LIKE ?)
         ORDER BY t.title ASC LIMIT 10
       `).all(like, like, like);
-      const comments = db.prepare(`
+      const comments = await db.prepare(`
         SELECT c.id, c.body, c.task_id, t.project_id, t.title as task_title, u.name as user_name
         FROM comments c
         JOIN tasks t ON t.id = c.task_id
@@ -211,16 +212,16 @@ const tools = [
       properties: {},
       required: []
     },
-    handler: () => {
-      const projects = db.prepare('SELECT COUNT(*) as count FROM projects WHERE archived = 0 AND deleted_at IS NULL').get().count;
-      const tasks = db.prepare('SELECT COUNT(*) as count FROM tasks WHERE archived = 0 AND deleted_at IS NULL').get().count;
-      const tasksDone = db.prepare("SELECT COUNT(*) as count FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status = 'done'").get().count;
-      const tasksInProgress = db.prepare("SELECT COUNT(*) as count FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status = 'in_progress'").get().count;
-      const tasksTodo = db.prepare("SELECT COUNT(*) as count FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status = 'todo'").get().count;
-      const overdueTasks = db.prepare(
+    handler: async () => {
+      const projects = (await db.prepare('SELECT COUNT(*) as count FROM projects WHERE archived = 0 AND deleted_at IS NULL').get()).count;
+      const tasks = (await db.prepare('SELECT COUNT(*) as count FROM tasks WHERE archived = 0 AND deleted_at IS NULL').get()).count;
+      const tasksDone = (await db.prepare("SELECT COUNT(*) as count FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status = 'done'").get()).count;
+      const tasksInProgress = (await db.prepare("SELECT COUNT(*) as count FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status = 'in_progress'").get()).count;
+      const tasksTodo = (await db.prepare("SELECT COUNT(*) as count FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status = 'todo'").get()).count;
+      const overdueTasks = (await db.prepare(
         "SELECT COUNT(*) as count FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status != 'done' AND due_date IS NOT NULL AND due_date < date('now')"
-      ).get().count;
-      const overdueList = db.prepare(`
+      ).get()).count;
+      const overdueList = await db.prepare(`
         SELECT t.id, t.title, p.name as project_name, t.due_date, u.name as assignee_name
         FROM tasks t
         LEFT JOIN projects p ON t.project_id = p.id
@@ -228,7 +229,7 @@ const tools = [
         WHERE t.archived = 0 AND t.deleted_at IS NULL AND t.status != 'done' AND t.due_date IS NOT NULL AND t.due_date < date('now')
         ORDER BY t.due_date ASC
       `).all();
-      const projectProgress = db.prepare(`
+      const projectRows = await db.prepare(`
         SELECT p.id as project_id, p.name,
                COUNT(t.id) as tasks,
                SUM(CASE WHEN t.status = 'done' THEN 1 ELSE 0 END) as done
@@ -237,7 +238,8 @@ const tools = [
         WHERE p.archived = 0 AND p.deleted_at IS NULL
         GROUP BY p.id
         ORDER BY p.created_at DESC
-      `).all().map(p => ({
+      `).all();
+      const projectProgress = projectRows.map(p => ({
         project_id: p.project_id,
         name: p.name,
         tasks: p.tasks,
@@ -261,9 +263,9 @@ const tools = [
       },
       required: []
     },
-    handler: (user, args) => {
+    handler: async (user, args) => {
       const limit = Math.min(parseInt(args.limit, 10) || 20, 100);
-      return db.prepare(`
+      return await db.prepare(`
         SELECT a.*, u.name as user_name
         FROM activity_log a
         LEFT JOIN users u ON a.user_id = u.id
@@ -280,11 +282,11 @@ export function getToolDefinitions() {
   return tools.map(({ name, description, parameters }) => ({ type: 'function', function: { name, description, parameters } }));
 }
 
-export function executeTool(name, user, args) {
+export async function executeTool(name, user, args) {
   const tool = toolMap.get(name);
   if (!tool) return { error: `Unknown tool: ${name}` };
   try {
-    const result = tool.handler(user, args || {});
+    const result = await tool.handler(user, args || {});
     return truncate(result);
   } catch (err) {
     return { error: err.message };

@@ -821,7 +821,7 @@ router.post('/:id/time-entries', requireRole('admin', 'member'), async (req, res
     'INSERT INTO time_entries (task_id, user_id, started_at, ended_at, minutes, note) VALUES (?, ?, ?, ?, ?, ?)'
   ).run(id, req.user.id || null, started_at || null, ended_at || null, mins, note || null);
 
-  recomputeTimeSpent(id);
+  await recomputeTimeSpent(id);
 
   const entry = await db.prepare('SELECT * FROM time_entries WHERE id = ?').get(result.lastInsertRowid);
   res.status(201).json(entry);

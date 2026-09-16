@@ -19,37 +19,52 @@ const METRICS = [
   {
     label: 'overdue',
     pattern: new RegExp(`${NUM}\\s*(?:overdue|late)\\s*(?:tasks?|items?)`, 'gi'),
-    count: () => db.prepare(
-      "SELECT COUNT(*) c FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status != 'done' AND due_date IS NOT NULL AND due_date < date('now')"
-    ).get().c
+    count: async () => {
+      const row = await db.prepare(
+        "SELECT COUNT(*) c FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status != 'done' AND due_date IS NOT NULL AND due_date < date('now')"
+      ).get();
+      return row.c;
+    }
   },
   {
     label: 'in progress',
     pattern: new RegExp(`${NUM}\\s*(?:tasks?|items?)[^.]*?in\\s*progress`, 'gi'),
-    count: () => db.prepare(
-      "SELECT COUNT(*) c FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status = 'in_progress'"
-    ).get().c
+    count: async () => {
+      const row = await db.prepare(
+        "SELECT COUNT(*) c FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status = 'in_progress'"
+      ).get();
+      return row.c;
+    }
   },
   {
     label: 'done',
     pattern: new RegExp(`${NUM}\\s*(?:tasks?|items?)[^.]*?(?:status\\s*of\\s*)?(?:as\\s+)?done`, 'gi'),
-    count: () => db.prepare(
-      "SELECT COUNT(*) c FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status = 'done'"
-    ).get().c
+    count: async () => {
+      const row = await db.prepare(
+        "SELECT COUNT(*) c FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status = 'done'"
+      ).get();
+      return row.c;
+    }
   },
   {
     label: 'todo',
     pattern: new RegExp(`${NUM}\\s*(?:tasks?|items?)[^.]*?(?:status\\s*of\\s*)?(?:as\\s+)?(?:to\\s*do|todo)`, 'gi'),
-    count: () => db.prepare(
-      "SELECT COUNT(*) c FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status = 'todo'"
-    ).get().c
+    count: async () => {
+      const row = await db.prepare(
+        "SELECT COUNT(*) c FROM tasks WHERE archived = 0 AND deleted_at IS NULL AND status = 'todo'"
+      ).get();
+      return row.c;
+    }
   },
   {
     label: 'projects',
     pattern: new RegExp(`${NUM}\\s*(?:active\\s+)?projects?`, 'gi'),
-    count: () => db.prepare(
-      'SELECT COUNT(*) c FROM projects WHERE archived = 0 AND deleted_at IS NULL'
-    ).get().c
+    count: async () => {
+      const row = await db.prepare(
+        'SELECT COUNT(*) c FROM projects WHERE archived = 0 AND deleted_at IS NULL'
+      ).get();
+      return row.c;
+    }
   },
   {
     label: 'tasks',
@@ -59,22 +74,25 @@ const METRICS = [
     // The \b prevents backtracking to singular "task" (which would leave the
     // trailing "s" and let the lookahead miss the status word).
     pattern: new RegExp(`${NUM}\\s*(?:total\\s+)?tasks?\\b(?!\\s*(?:with|that|currently|marked|in\\s*progress|as\\s+done|as\\s+todo|overdue|late))`, 'gi'),
-    count: () => db.prepare(
-      'SELECT COUNT(*) c FROM tasks WHERE archived = 0 AND deleted_at IS NULL'
-    ).get().c
+    count: async () => {
+      const row = await db.prepare(
+        'SELECT COUNT(*) c FROM tasks WHERE archived = 0 AND deleted_at IS NULL'
+      ).get();
+      return row.c;
+    }
   }
 ];
 
 // Correct any count in the reply that doesn't match the live DB.
 // Returns { reply, corrected: [{label, from, to}] }.
-export function verifyCounts(reply) {
+export async function verifyCounts(reply) {
   if (!reply || typeof reply !== 'string') return { reply, corrected: [] };
 
   let out = reply;
   const corrected = [];
 
   for (const m of METRICS) {
-    const actual = m.count();
+    const actual = await m.count();
     // Replace every occurrence of "<number> <label>" where the number is wrong.
     // The number may be wrapped in markdown (**18**) — match the number plus any
     // surrounding non-word formatting so we can replace just the digits.

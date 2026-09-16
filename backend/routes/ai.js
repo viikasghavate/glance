@@ -8,12 +8,12 @@ const router = Router();
 
 router.use(requireAuth);
 
-function getSessionForUser(sessionId, userId) {
-  return db.prepare('SELECT * FROM ai_sessions WHERE id = ? AND user_id = ?').get(sessionId, userId);
+async function getSessionForUser(sessionId, userId) {
+  return await db.prepare('SELECT * FROM ai_sessions WHERE id = ? AND user_id = ?').get(sessionId, userId);
 }
 
-function loadMessages(sessionId) {
-  return db.prepare(
+async function loadMessages(sessionId) {
+  return await db.prepare(
     'SELECT role, content FROM ai_messages WHERE session_id = ? ORDER BY id ASC'
   ).all(sessionId);
 }
@@ -29,31 +29,31 @@ router.post('/chat', async (req, res) => {
   try {
     let session = null;
     if (session_id != null) {
-      session = getSessionForUser(session_id, req.user.id);
+      session = await getSessionForUser(session_id, req.user.id);
     }
 
     if (!session) {
       const title = text.slice(0, 40);
-      const result = db.prepare(
+      const result = await db.prepare(
         'INSERT INTO ai_sessions (user_id, title) VALUES (?, ?)'
       ).run(req.user.id, title);
-      session = db.prepare('SELECT * FROM ai_sessions WHERE id = ?').get(result.lastInsertRowid);
+      session = await db.prepare('SELECT * FROM ai_sessions WHERE id = ?').get(result.lastInsertRowid);
     }
 
-    const prior = loadMessages(session.id);
+    const prior = await loadMessages(session.id);
 
-    db.prepare('INSERT INTO ai_messages (session_id, role, content) VALUES (?, ?, ?)')
+    await db.prepare('INSERT INTO ai_messages (session_id, role, content) VALUES (?, ?, ?)')
       .run(session.id, 'user', text);
 
     const history = [...prior, { role: 'user', content: text }];
     const reply = await runAssistant(req.user, history);
 
-    db.prepare('INSERT INTO ai_messages (session_id, role, content) VALUES (?, ?, ?)')
+    await db.prepare('INSERT INTO ai_messages (session_id, role, content) VALUES (?, ?, ?)')
       .run(session.id, 'assistant', reply);
 
-    db.prepare("UPDATE ai_sessions SET updated_at = datetime('now') WHERE id = ?").run(session.id);
+    await db.prepare("UPDATE ai_sessions SET updated_at = datetime('now') WHERE id = ?").run(session.id);
 
-    logActivity(req.user.id, 'ai.chat', 'ai', session.id, session.title, { prompt: text, reply });
+    await logActivity(req.user.id, 'ai.chat', 'ai', session.id, session.title, { prompt: text, reply });
 
     res.json({ reply, session_id: session.id });
   } catch (err) {
@@ -62,19 +62,19 @@ router.post('/chat', async (req, res) => {
   }
 });
 
-router.get('/sessions', (req, res) => {
-  const sessions = db.prepare(
+router.get('/sessions', async (req, res) => {
+  const sessions = await db.prepare(
     'SELECT id, title, updated_at FROM ai_sessions WHERE user_id = ? ORDER BY updated_at DESC, id DESC LIMIT 30'
   ).all(req.user.id);
   res.json({ sessions });
 });
 
-router.get('/sessions/:id/messages', (req, res) => {
-  const session = getSessionForUser(req.params.id, req.user.id);
+router.get('/sessions/:id/messages', async (req, res) => {
+  const session = await getSessionForUser(req.params.id, req.user.id);
   if (!session) {
     return res.status(404).json({ error: 'Session not found' });
   }
-  const messages = loadMessages(session.id);
+  const messages = await loadMessages(session.id);
   res.json({ session_id: session.id, title: session.title, messages });
 });
 
