@@ -6,8 +6,8 @@ const router = Router();
 
 router.use(requireAuth);
 
-router.get('/', (req, res) => {
-  const tags = db.prepare(`
+router.get('/', async (req, res) => {
+  const tags = await db.prepare(`
     SELECT t.id, t.name, COUNT(pt.project_id) as project_count
     FROM tags t
     LEFT JOIN project_tags pt ON pt.tag_id = t.id

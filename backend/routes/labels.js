@@ -6,8 +6,8 @@ const router = Router();
 
 router.use(requireAuth);
 
-router.get('/', (req, res) => {
-  const labels = db.prepare(`
+router.get('/', async (req, res) => {
+  const labels = await db.prepare(`
     SELECT l.id, l.name, COUNT(tl.task_id) as task_count
     FROM labels l
     LEFT JOIN task_labels tl ON tl.label_id = l.id
