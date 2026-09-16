@@ -13,8 +13,8 @@ function canEditProfile(req, userId) {
   return req.user.id === Number(userId) || req.user.role === 'admin';
 }
 
-function getSkill(id) {
-  return db.prepare(`
+async function getSkill(id) {
+  return await db.prepare(`
     SELECT s.*, (SELECT COUNT(*) FROM user_skills us WHERE us.skill_id = s.id) as userCount
     FROM skills s
     WHERE s.id = ?
@@ -23,8 +23,8 @@ function getSkill(id) {
 
 // ---------- Catalog ----------
 
-router.get('/', (req, res) => {
-  const skills = db.prepare(`
+router.get('/', async (req, res) => {
+  const skills = await db.prepare(`
     SELECT s.*, (SELECT COUNT(*) FROM user_skills us WHERE us.skill_id = s.id) as userCount
     FROM skills s
     ORDER BY s.category ASC, s.name ASC
@@ -33,30 +33,30 @@ router.get('/', (req, res) => {
   res.json(skills.map(s => ({ ...s, userCount: s.userCount || 0 })));
 });
 
-router.post('/', requireRole('admin'), (req, res) => {
+router.post('/', requireRole('admin'), async (req, res) => {
   const { name, category, description } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ error: 'name is required' });
 
-  const existing = db.prepare('SELECT id FROM skills WHERE name = ?').get(name.trim());
+  const existing = await db.prepare('SELECT id FROM skills WHERE name = ?').get(name.trim());
   if (existing) return res.status(409).json({ error: 'Skill already exists' });
 
-  const result = db.prepare(
+  const result = await db.prepare(
     'INSERT INTO skills (name, category, description) VALUES (?, ?, ?)'
   ).run(name.trim(), category || '', description || '');
 
-  const skill = getSkill(result.lastInsertRowid);
+  const skill = await getSkill(result.lastInsertRowid);
   logActivity(req.user.id, 'skill.created', 'skill', skill.id, skill.name);
   res.status(201).json({ ...skill, userCount: 0 });
 });
 
-router.patch('/:id', requireRole('admin'), (req, res) => {
+router.patch('/:id', requireRole('admin'), async (req, res) => {
   const { id } = req.params;
-  const skill = db.prepare('SELECT * FROM skills WHERE id = ?').get(id);
+  const skill = await db.prepare('SELECT * FROM skills WHERE id = ?').get(id);
   if (!skill) return res.status(404).json({ error: 'Skill not found' });
 
   if (req.body.name !== undefined) {
     if (!req.body.name.trim()) return res.status(400).json({ error: 'name cannot be empty' });
-    const existing = db.prepare('SELECT id FROM skills WHERE name = ? AND id != ?').get(req.body.name.trim(), id);
+    const existing = await db.prepare('SELECT id FROM skills WHERE name = ? AND id != ?').get(req.body.name.trim(), id);
     if (existing) return res.status(409).json({ error: 'Skill already exists' });
   }
 
@@ -71,22 +71,22 @@ router.patch('/:id', requireRole('admin'), (req, res) => {
     }
   }
 
-  if (updates.length === 0) return res.json(getSkill(id));
+  if (updates.length === 0) return res.json(await getSkill(id));
 
   values.push(id);
-  db.prepare(`UPDATE skills SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+  await db.prepare(`UPDATE skills SET ${updates.join(', ')} WHERE id = ?`).run(...values);
 
-  const updated = getSkill(id);
+  const updated = await getSkill(id);
   logActivity(req.user.id, 'skill.updated', 'skill', updated.id, updated.name);
   res.json(updated);
 });
 
-router.delete('/:id', requireRole('admin'), (req, res) => {
+router.delete('/:id', requireRole('admin'), async (req, res) => {
   const { id } = req.params;
-  const skill = db.prepare('SELECT * FROM skills WHERE id = ?').get(id);
+  const skill = await db.prepare('SELECT * FROM skills WHERE id = ?').get(id);
   if (!skill) return res.status(404).json({ error: 'Skill not found' });
 
-  db.prepare('DELETE FROM skills WHERE id = ?').run(id);
+  await db.prepare('DELETE FROM skills WHERE id = ?').run(id);
 
   logActivity(req.user.id, 'skill.deleted', 'skill', id, skill.name);
   res.json({ success: true });
@@ -94,12 +94,12 @@ router.delete('/:id', requireRole('admin'), (req, res) => {
 
 // ---------- User profile ----------
 
-router.get('/user/:userId', (req, res) => {
+router.get('/user/:userId', async (req, res) => {
   const { userId } = req.params;
-  const user = db.prepare('SELECT id, name FROM users WHERE id = ?').get(userId);
+  const user = await db.prepare('SELECT id, name FROM users WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: 'User not found' });
 
-  const skills = db.prepare(`
+  const skills = await db.prepare(`
     SELECT us.skill_id, s.name, s.category, s.description, us.level, us.years_experience
     FROM user_skills us
     JOIN skills s ON s.id = us.skill_id
@@ -107,7 +107,7 @@ router.get('/user/:userId', (req, res) => {
     ORDER BY s.category ASC, s.name ASC
   `).all(userId);
 
-  const endorsementCounts = db.prepare(`
+  const endorsementCounts = await db.prepare(`
     SELECT skill_id, COUNT(*) as count
     FROM skill_endorsements
     WHERE user_id = ?
@@ -131,7 +131,7 @@ router.get('/user/:userId', (req, res) => {
   });
 });
 
-router.put('/user/:userId', (req, res) => {
+router.put('/user/:userId', async (req, res) => {
   const { userId } = req.params;
   if (!canEditProfile(req, userId)) {
     return res.status(403).json({ error: 'Insufficient permissions' });
@@ -140,7 +140,7 @@ router.put('/user/:userId', (req, res) => {
   const { skillId, level, yearsExperience } = req.body;
   if (!skillId) return res.status(400).json({ error: 'skillId is required' });
 
-  const skill = db.prepare('SELECT id FROM skills WHERE id = ?').get(skillId);
+  const skill = await db.prepare('SELECT id FROM skills WHERE id = ?').get(skillId);
   if (!skill) return res.status(404).json({ error: 'Skill not found' });
 
   const nextLevel = level || 'Intermediate';
@@ -150,7 +150,7 @@ router.put('/user/:userId', (req, res) => {
 
   const years = yearsExperience != null ? Number(yearsExperience) : 0;
 
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO user_skills (user_id, skill_id, level, years_experience)
     VALUES (?, ?, ?, ?)
     ON CONFLICT(user_id, skill_id) DO UPDATE SET
@@ -159,30 +159,30 @@ router.put('/user/:userId', (req, res) => {
       updated_at = datetime('now')
   `).run(userId, skillId, nextLevel, years);
 
-  const user = db.prepare('SELECT name FROM users WHERE id = ?').get(userId);
+  const user = await db.prepare('SELECT name FROM users WHERE id = ?').get(userId);
   logActivity(req.user.id, 'user.skill_set', 'user_skill', userId, user ? user.name : null, { skillId, level: nextLevel, yearsExperience: years });
   res.json({ success: true });
 });
 
-router.delete('/user/:userId/:skillId', (req, res) => {
+router.delete('/user/:userId/:skillId', async (req, res) => {
   const { userId, skillId } = req.params;
   if (!canEditProfile(req, userId)) {
     return res.status(403).json({ error: 'Insufficient permissions' });
   }
 
-  const row = db.prepare('SELECT id FROM user_skills WHERE user_id = ? AND skill_id = ?').get(userId, skillId);
+  const row = await db.prepare('SELECT id FROM user_skills WHERE user_id = ? AND skill_id = ?').get(userId, skillId);
   if (!row) return res.status(404).json({ error: 'Skill not found for user' });
 
-  db.prepare('DELETE FROM user_skills WHERE user_id = ? AND skill_id = ?').run(userId, skillId);
+  await db.prepare('DELETE FROM user_skills WHERE user_id = ? AND skill_id = ?').run(userId, skillId);
 
-  const user = db.prepare('SELECT name FROM users WHERE id = ?').get(userId);
+  const user = await db.prepare('SELECT name FROM users WHERE id = ?').get(userId);
   logActivity(req.user.id, 'user.skill_removed', 'user_skill', userId, user ? user.name : null, { skillId });
   res.json({ success: true });
 });
 
 // ---------- Coverage ----------
 
-router.get('/coverage', (req, res) => {
+router.get('/coverage', async (req, res) => {
   const { skill, level, q, orderBy } = req.query;
 
   const conditions = [];
@@ -217,7 +217,7 @@ router.get('/coverage', (req, res) => {
     ? 'endorsementCount DESC, u.name ASC, s.name ASC'
     : 'u.name ASC, s.category ASC, s.name ASC';
 
-  const rows = db.prepare(`
+  const rows = await db.prepare(`
     SELECT us.user_id, u.name as user_name, us.skill_id, s.name as skill_name,
            s.category, us.level, us.years_experience,
            (SELECT COUNT(*) FROM skill_endorsements se
@@ -243,12 +243,12 @@ router.get('/coverage', (req, res) => {
 
 // ---------- Project skill requirements ----------
 
-router.get('/project/:projectId/requirements', (req, res) => {
+router.get('/project/:projectId/requirements', async (req, res) => {
   const { projectId } = req.params;
-  const project = db.prepare('SELECT id, name FROM projects WHERE id = ? AND deleted_at IS NULL').get(projectId);
+  const project = await db.prepare('SELECT id, name FROM projects WHERE id = ? AND deleted_at IS NULL').get(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
-  const reqs = db.prepare(`
+  const reqs = await db.prepare(`
     SELECT r.project_id, r.skill_id, s.name as skill_name, s.category,
            r.min_level, r.min_count
     FROM project_skill_requirements r
@@ -257,10 +257,11 @@ router.get('/project/:projectId/requirements', (req, res) => {
     ORDER BY s.category ASC, s.name ASC
   `).all(projectId);
 
-  const result = reqs.map(r => {
+  const result = [];
+  for (const r of reqs) {
     const minIdx = LEVELS.indexOf(r.min_level);
     const allowed = LEVELS.slice(minIdx);
-    const covered = db.prepare(`
+    const covered = await db.prepare(`
       SELECT us.user_id, u.name as user_name, us.level
       FROM user_skills us
       JOIN users u ON u.id = us.user_id
@@ -269,7 +270,7 @@ router.get('/project/:projectId/requirements', (req, res) => {
     `).all(r.skill_id, ...allowed);
 
     const coveredCount = covered.length;
-    return {
+    result.push({
       projectId: r.project_id,
       skillId: r.skill_id,
       skillName: r.skill_name,
@@ -279,20 +280,20 @@ router.get('/project/:projectId/requirements', (req, res) => {
       coveredCount,
       coveredUsers: covered.map(c => ({ userId: c.user_id, userName: c.user_name, level: c.level })),
       gap: Math.max(0, r.min_count - coveredCount)
-    };
-  });
+    });
+  }
 
   res.json(result);
 });
 
-router.put('/project/:projectId/requirements/:skillId', requireRole('admin'), (req, res) => {
+router.put('/project/:projectId/requirements/:skillId', requireRole('admin'), async (req, res) => {
   const { projectId, skillId } = req.params;
   const { minLevel, minCount } = req.body;
 
-  const project = db.prepare('SELECT id, name FROM projects WHERE id = ? AND deleted_at IS NULL').get(projectId);
+  const project = await db.prepare('SELECT id, name FROM projects WHERE id = ? AND deleted_at IS NULL').get(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
-  const skill = db.prepare('SELECT id, name FROM skills WHERE id = ?').get(skillId);
+  const skill = await db.prepare('SELECT id, name FROM skills WHERE id = ?').get(skillId);
   if (!skill) return res.status(404).json({ error: 'Skill not found' });
 
   const nextLevel = minLevel || 'Intermediate';
@@ -305,7 +306,7 @@ router.put('/project/:projectId/requirements/:skillId', requireRole('admin'), (r
     return res.status(400).json({ error: 'minCount must be an integer >= 1' });
   }
 
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO project_skill_requirements (project_id, skill_id, min_level, min_count)
     VALUES (?, ?, ?, ?)
     ON CONFLICT(project_id, skill_id) DO UPDATE SET
@@ -314,7 +315,7 @@ router.put('/project/:projectId/requirements/:skillId', requireRole('admin'), (r
       updated_at = datetime('now')
   `).run(projectId, skillId, nextLevel, count);
 
-  const row = db.prepare(`
+  const row = await db.prepare(`
     SELECT r.*, s.name as skill_name, s.category
     FROM project_skill_requirements r
     JOIN skills s ON s.id = r.skill_id
@@ -332,16 +333,16 @@ router.put('/project/:projectId/requirements/:skillId', requireRole('admin'), (r
   });
 });
 
-router.delete('/project/:projectId/requirements/:skillId', requireRole('admin'), (req, res) => {
+router.delete('/project/:projectId/requirements/:skillId', requireRole('admin'), async (req, res) => {
   const { projectId, skillId } = req.params;
 
-  const project = db.prepare('SELECT id, name FROM projects WHERE id = ? AND deleted_at IS NULL').get(projectId);
+  const project = await db.prepare('SELECT id, name FROM projects WHERE id = ? AND deleted_at IS NULL').get(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
-  const row = db.prepare('SELECT id FROM project_skill_requirements WHERE project_id = ? AND skill_id = ?').get(projectId, skillId);
+  const row = await db.prepare('SELECT id FROM project_skill_requirements WHERE project_id = ? AND skill_id = ?').get(projectId, skillId);
   if (!row) return res.status(404).json({ error: 'Requirement not found' });
 
-  db.prepare('DELETE FROM project_skill_requirements WHERE project_id = ? AND skill_id = ?').run(projectId, skillId);
+  await db.prepare('DELETE FROM project_skill_requirements WHERE project_id = ? AND skill_id = ?').run(projectId, skillId);
 
   logActivity(req.user.id, 'project.skill_requirement_removed', 'project', projectId, project.name, { skillId });
   res.json({ success: true });
@@ -349,7 +350,7 @@ router.delete('/project/:projectId/requirements/:skillId', requireRole('admin'),
 
 // ---------- Skill endorsements ----------
 
-router.get('/endorsements', (req, res) => {
+router.get('/endorsements', async (req, res) => {
   const { user, skill, endorser } = req.query;
 
   const conditions = [];
@@ -387,7 +388,7 @@ router.get('/endorsements', (req, res) => {
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
-  const rows = db.prepare(`
+  const rows = await db.prepare(`
     SELECT se.id, se.endorser_id, se.user_id, se.skill_id, se.note, se.created_at,
            er.name as endorser_name, u.name as user_name, s.name as skill_name
     FROM skill_endorsements se
@@ -411,7 +412,7 @@ router.get('/endorsements', (req, res) => {
   })));
 });
 
-router.post('/endorsements', (req, res) => {
+router.post('/endorsements', async (req, res) => {
   const { userId, skillId, note } = req.body;
 
   if (!userId || !skillId) return res.status(400).json({ error: 'userId and skillId are required' });
@@ -420,22 +421,22 @@ router.post('/endorsements', (req, res) => {
     return res.status(400).json({ error: 'Cannot endorse yourself' });
   }
 
-  const target = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+  const target = await db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
   if (!target) return res.status(404).json({ error: 'User not found' });
 
-  const skill = db.prepare('SELECT id FROM skills WHERE id = ?').get(skillId);
+  const skill = await db.prepare('SELECT id FROM skills WHERE id = ?').get(skillId);
   if (!skill) return res.status(404).json({ error: 'Skill not found' });
 
-  const existing = db.prepare('SELECT id FROM skill_endorsements WHERE endorser_id = ? AND user_id = ? AND skill_id = ?')
+  const existing = await db.prepare('SELECT id FROM skill_endorsements WHERE endorser_id = ? AND user_id = ? AND skill_id = ?')
     .get(req.user.id, userId, skillId);
   if (existing) return res.status(409).json({ error: 'Already endorsed' });
 
-  const result = db.prepare(`
+  const result = await db.prepare(`
     INSERT INTO skill_endorsements (endorser_id, user_id, skill_id, note)
     VALUES (?, ?, ?, ?)
   `).run(req.user.id, userId, skillId, note || '');
 
-  const row = db.prepare(`
+  const row = await db.prepare(`
     SELECT se.id, se.endorser_id, se.user_id, se.skill_id, se.note, se.created_at,
            er.name as endorser_name, u.name as user_name, s.name as skill_name
     FROM skill_endorsements se
@@ -459,9 +460,9 @@ router.post('/endorsements', (req, res) => {
   });
 });
 
-router.delete('/endorsements/:id', (req, res) => {
+router.delete('/endorsements/:id', async (req, res) => {
   const { id } = req.params;
-  const row = db.prepare(`
+  const row = await db.prepare(`
     SELECT se.*, u.name as user_name, s.name as skill_name
     FROM skill_endorsements se
     JOIN users u ON u.id = se.user_id
@@ -474,7 +475,7 @@ router.delete('/endorsements/:id', (req, res) => {
     return res.status(403).json({ error: 'Insufficient permissions' });
   }
 
-  db.prepare('DELETE FROM skill_endorsements WHERE id = ?').run(id);
+  await db.prepare('DELETE FROM skill_endorsements WHERE id = ?').run(id);
 
   logActivity(req.user.id, 'user.skill_endorsement_removed', 'user', row.user_id, row.user_name, { skillId: row.skill_id, skillName: row.skill_name });
   res.json({ success: true });
