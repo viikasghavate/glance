@@ -1,5 +1,6 @@
 import fs from 'fs';
 import pg from 'pg';
+import { AsyncLocalStorage } from 'async_hooks';
 
 const { Pool } = pg;
 
@@ -87,9 +88,10 @@ export const db = {
       run: (...params) => dbRun(pgSql, params),
     };
   },
+  transaction: dbTransaction,
 };
 
-// export the translator for the parity/verification layer if needed
+// alias for compatibility
 const _translateQ = translateQ;
 
 function oneParam(param) {
@@ -97,19 +99,59 @@ function oneParam(param) {
   return p;
 }
 
+// ── AsyncLocalStorage transaction routing ──
+// Routes call db.transaction(fn) then, INSIDE fn, call the module-global
+// db.prepare().run/etc. (not a scoped client). To make those atomic on pg, we
+// route every query through the "current" transaction client when one is
+// active; otherwise through the pool (autocommit). This mirrors better-sqlite3:
+//   const txn = db.transaction(fn); txn();  ->  await db.transaction(fn);
+// sqlite txn() is sync (await is a no-op); pg txn() is async.
+const als = new AsyncLocalStorage();
+
+async function queryCurrent(sql, params) {
+  const client = als.getStore();
+  return client ? client.query(sql, params) : pgPool.query(sql, params);
+}
+
 export async function dbGet(sql, params = []) {
-  const r = await pgPool.query(sql, oneParam(params));
+  const r = await queryCurrent(sql, oneParam(params));
   return r.rows[0] ?? null;
 }
 
 export async function dbAll(sql, params = []) {
-  const r = await pgPool.query(sql, oneParam(params));
+  const r = await queryCurrent(sql, oneParam(params));
   return r.rows;
 }
 
 export async function dbRun(sql, params = []) {
-  const r = await pgPool.query(sql, oneParam(params));
-  return { changes: r.rowCount ?? 0, lastID: null };
+  // better-sqlite3 run() returns { changes, lastInsertRowid }; routes do
+  // run() then .get(lastInsertRowid). On pg, for INSERTs append RETURNING id.
+  if (/^\s*insert\s+into/i.test(sql)) {
+    const withRet = sql.replace(/;\s*$/, '') + ' RETURNING id';
+    const rr = await queryCurrent(withRet, oneParam(params));
+    const lastInsertRowid = rr.rows && rr.rows.length ? Number(rr.rows[0].id) : null;
+    return { changes: rr.rowCount ?? 0, lastInsertRowid };
+  }
+  const r = await queryCurrent(sql, oneParam(params));
+  return { changes: r.rowCount ?? 0, lastInsertRowid: null };
+}
+
+export function dbTransaction(fn) {
+  // returns an awaitable callable; sqlite's txn() is sync so `await` is a no-op
+  return async () => {
+    const client = await pgPool.connect();
+    try {
+      await client.query('BEGIN');
+      const out = await als.run(client, () => fn());
+      await client.query('COMMIT');
+      return out;
+    } catch (e) {
+      try { await client.query('ROLLBACK'); } catch (_) {}
+      throw e;
+    } finally {
+      client.release();
+    }
+  };
 }
 
 // Run inside an explicit transaction. Caller passes an async fn(conn) that
