@@ -61,6 +61,19 @@ router.get('/', (req, res) => {
     ORDER BY t.due_date ASC
   `).all();
 
+  const dueSoonList = db.prepare(`
+    SELECT t.id, t.title, p.name as project_name, t.due_date, u.name as assignee_name
+    FROM tasks t
+    LEFT JOIN projects p ON t.project_id = p.id
+    LEFT JOIN users u ON t.assignee_id = u.id
+    WHERE t.archived = 0 AND t.deleted_at IS NULL
+      AND t.status != 'done'
+      AND t.due_date IS NOT NULL
+      AND t.due_date >= date('now')
+      AND t.due_date <= date('now', '+6 days')
+    ORDER BY t.due_date ASC
+  `).all();
+
   const recentActivity = db.prepare(`
     SELECT t.id, t.title, p.name as project_name, t.status, t.updated_at
     FROM tasks t
@@ -153,6 +166,7 @@ router.get('/', (req, res) => {
     workloadByMember,
     projectProgress,
     overdueTasks: overdueList,
+    dueSoonTasks: dueSoonList,
     recentActivity,
     statusTrend
   });

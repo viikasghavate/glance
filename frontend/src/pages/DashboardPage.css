@@ -330,6 +330,16 @@
   color: var(--danger);
 }
 
+.task-row-due-chip {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--cyan);
+  background: color-mix(in srgb, var(--cyan) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cyan) 35%, transparent);
+  border-radius: var(--radius);
+  padding: 0.125rem 0.5rem;
+}
+
 /* ── Time Tracking ── */
 .time-tracking {
   display: flex;

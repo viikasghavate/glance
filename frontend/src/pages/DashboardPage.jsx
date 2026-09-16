@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { dueInfo } from '../components/overdue';
 import './DashboardPage.css';
 
 const statusMeta = {
@@ -305,6 +306,30 @@ export default function DashboardPage() {
                   </div>
                 </Link>
               ))
+            )}
+          </div>
+        </div>
+
+        <div className="panel">
+          <h2 className="panel-title">Due This Week</h2>
+          <div className="task-list">
+            {data.dueSoonTasks.length === 0 ? (
+              <div className="empty">No tasks due this week</div>
+            ) : (
+              data.dueSoonTasks.map(t => {
+                const info = dueInfo(t.due_date, 'todo');
+                return (
+                  <Link key={t.id} to={`/project/${t.project_id}?task=${t.id}`} className="task-row">
+                    <div className="task-row-title">{t.title}</div>
+                    <div className="task-row-meta">
+                      <span className="task-row-project">{t.project_name}</span>
+                      {t.assignee_name && <span className="task-row-assignee">{t.assignee_name}</span>}
+                      <span className="task-row-due">{t.due_date}</span>
+                      {info && <span className="task-row-due-chip">{info.label}</span>}
+                    </div>
+                  </Link>
+                );
+              })
             )}
           </div>
         </div>
