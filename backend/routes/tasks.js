@@ -23,8 +23,8 @@ function isValidTime(value) {
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(value));
 }
 
-function getWatchers(taskId) {
-  return db.prepare(`
+async function getWatchers(taskId) {
+  return await db.prepare(`
     SELECT u.id, u.name, u.email
     FROM task_watchers w
     JOIN users u ON u.id = w.user_id
@@ -33,12 +33,12 @@ function getWatchers(taskId) {
   `).all(taskId);
 }
 
-function getDescendantIds(taskId) {
+async function getDescendantIds(taskId) {
   const ids = new Set();
   const queue = [taskId];
   while (queue.length > 0) {
     const current = queue.shift();
-    const children = db.prepare('SELECT id FROM tasks WHERE parent_id = ? AND deleted_at IS NULL').all(current);
+    const children = await db.prepare('SELECT id FROM tasks WHERE parent_id = ? AND deleted_at IS NULL').all(current);
     for (const child of children) {
       if (!ids.has(child.id)) {
         ids.add(child.id);
@@ -49,12 +49,12 @@ function getDescendantIds(taskId) {
   return ids;
 }
 
-function getChecklistProgressMap(taskIds) {
+async function getChecklistProgressMap(taskIds) {
   const map = {};
   for (const id of taskIds) map[id] = { total: 0, completed: 0 };
   if (taskIds.length === 0) return map;
   const placeholders = taskIds.map(() => '?').join(', ');
-  const rows = db.prepare(
+  const rows = await db.prepare(
     `SELECT task_id, COUNT(*) as total, COALESCE(SUM(completed), 0) as completed
      FROM task_checklist WHERE task_id IN (${placeholders}) GROUP BY task_id`
   ).all(...taskIds);
@@ -64,8 +64,8 @@ function getChecklistProgressMap(taskIds) {
   return map;
 }
 
-function getDependencies(taskId) {
-  const blockedBy = db.prepare(`
+async function getDependencies(taskId) {
+  const blockedBy = await db.prepare(`
     SELECT t.id, t.title, t.status
     FROM task_dependencies d
     JOIN tasks t ON t.id = d.depends_on_id
@@ -73,7 +73,7 @@ function getDependencies(taskId) {
     ORDER BY t.id ASC
   `).all(taskId);
 
-  const blocks = db.prepare(`
+  const blocks = await db.prepare(`
     SELECT t.id, t.title, t.status
     FROM task_dependencies d
     JOIN tasks t ON t.id = d.task_id
@@ -84,8 +84,8 @@ function getDependencies(taskId) {
   return { blockedBy, blocks };
 }
 
-function getTaskWithDeps(id) {
-  const task = db.prepare(`
+async function getTaskWithDeps(id) {
+  const task = await db.prepare(`
     SELECT t.*, u.name as assignee_name, u.email as assignee_email,
            r.name as reporter_name, r.email as reporter_email,
            s.name as sprint_name, m.name as milestone_name,
@@ -98,11 +98,11 @@ function getTaskWithDeps(id) {
     WHERE t.id = ? AND t.deleted_at IS NULL
   `).get(id);
   if (!task) return null;
-  const deps = getDependencies(id);
-  const checklist = db.prepare(
+  const deps = await getDependencies(id);
+  const checklist = await db.prepare(
     'SELECT COUNT(*) as total, COALESCE(SUM(completed), 0) as completed FROM task_checklist WHERE task_id = ?'
   ).get(id);
-  return { ...task, ...deps, labelList: getTaskLabels(id), watchers: getWatchers(id), checklist_progress: { total: checklist.total, completed: checklist.completed || 0 } };
+  return { ...task, ...deps, labelList: await getTaskLabels(id), watchers: await getWatchers(id), checklist_progress: { total: checklist.total, completed: checklist.completed || 0 } };
 }
 
 function addDays(dateStr, days) {
@@ -134,7 +134,7 @@ function computeNextDate(recurrence, baseDate) {
   }
 }
 
-function createNextOccurrence(task) {
+async function createNextOccurrence(task) {
   const recurrence = task.recurrence;
   if (!recurrence || recurrence === 'none') return;
 
@@ -146,11 +146,11 @@ function createNextOccurrence(task) {
 
   const nextStart = task.start_date ? computeNextDate(recurrence, task.start_date) : null;
 
-  const maxPos = db.prepare(
+  const maxPos = await db.prepare(
     'SELECT COALESCE(MAX(position), -1) as maxPos FROM tasks WHERE project_id = ? AND status = ?'
   ).get(task.project_id, 'todo');
 
-  const result = db.prepare(`
+  const result = await db.prepare(`
     INSERT INTO tasks (project_id, title, description, status, priority, due_date, assignee_id, position, labels, start_date, estimated_hours, time_spent, reporter_id, archived, parent_id, recurrence, recurrence_end)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
@@ -175,21 +175,21 @@ function createNextOccurrence(task) {
 
   const newId = result.lastInsertRowid;
 
-  const deps = db.prepare('SELECT depends_on_id FROM task_dependencies WHERE task_id = ?').all(task.id);
+  const deps = await db.prepare('SELECT depends_on_id FROM task_dependencies WHERE task_id = ?').all(task.id);
   const insertDep = db.prepare('INSERT OR IGNORE INTO task_dependencies (task_id, depends_on_id) VALUES (?, ?)');
   for (const d of deps) {
-    insertDep.run(newId, d.depends_on_id);
+    await insertDep.run(newId, d.depends_on_id);
   }
 }
 
-router.get('/project/:projectId', (req, res) => {
+router.get('/project/:projectId', async (req, res) => {
   const { projectId } = req.params;
-  const project = db.prepare('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL').get(projectId);
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL').get(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
   const labelFilter = req.query.label;
 
-  let tasks = db.prepare(`
+  let tasks = await db.prepare(`
     SELECT t.*, u.name as assignee_name, u.email as assignee_email,
            r.name as reporter_name, r.email as reporter_email,
            s.name as sprint_name, m.name as milestone_name,
@@ -205,24 +205,28 @@ router.get('/project/:projectId', (req, res) => {
   `).all(projectId);
 
   if (labelFilter) {
-    const matchingIds = db.prepare(`
+    const matchingRows = await db.prepare(`
       SELECT DISTINCT tl.task_id
       FROM task_labels tl
       JOIN labels l ON l.id = tl.label_id
       WHERE l.name = ?
-    `).all(labelFilter).map(r => r.task_id);
+    `).all(labelFilter);
+    const matchingIds = matchingRows.map(r => r.task_id);
     const idSet = new Set(matchingIds);
     tasks = tasks.filter(t => idSet.has(t.id));
   }
 
-  const checklistProgress = getChecklistProgressMap(tasks.map(t => t.id));
-  const result = tasks.map(t => ({ ...t, ...getDependencies(t.id), labelList: getTaskLabels(t.id), checklist_progress: checklistProgress[t.id] }));
+  const checklistProgress = await getChecklistProgressMap(tasks.map(t => t.id));
+  const result = [];
+  for (const t of tasks) {
+    result.push({ ...t, ...await getDependencies(t.id), labelList: await getTaskLabels(t.id), checklist_progress: checklistProgress[t.id] });
+  }
 
   res.json(result);
 });
 
-router.get('/mine', (req, res) => {
-  const tasks = db.prepare(`
+router.get('/mine', async (req, res) => {
+  const tasks = await db.prepare(`
     SELECT t.*, p.name as project_name, u.name as assignee_name, u.email as assignee_email,
            r.name as reporter_name, r.email as reporter_email,
            s.name as sprint_name, m.name as milestone_name,
@@ -243,8 +247,11 @@ router.get('/mine', (req, res) => {
       t.title ASC
   `).all(req.user.id);
 
-  const checklistProgress = getChecklistProgressMap(tasks.map(t => t.id));
-  const result = tasks.map(t => ({ ...t, ...getDependencies(t.id), labelList: getTaskLabels(t.id), checklist_progress: checklistProgress[t.id] }));
+  const checklistProgress = await getChecklistProgressMap(tasks.map(t => t.id));
+  const result = [];
+  for (const t of tasks) {
+    result.push({ ...t, ...await getDependencies(t.id), labelList: await getTaskLabels(t.id), checklist_progress: checklistProgress[t.id] });
+  }
 
   res.json(result);
 });
@@ -254,8 +261,8 @@ function csvEscape(value) {
   return '"' + String(value).replace(/"/g, '""') + '"';
 }
 
-router.get('/mine/export', (req, res) => {
-  const tasks = db.prepare(`
+router.get('/mine/export', async (req, res) => {
+  const tasks = await db.prepare(`
     SELECT t.*, p.name as project_name, u.name as assignee_name,
            s.name as sprint_name, m.name as milestone_name
     FROM tasks t
@@ -274,21 +281,24 @@ router.get('/mine/export', (req, res) => {
 
   const headers = ['id', 'title', 'status', 'priority', 'assignee', 'labels', 'sprint', 'milestone', 'start_date', 'due_date', 'estimated_hours', 'time_spent', 'description'];
 
-  const rows = tasks.map(t => [
-    t.id,
-    t.title,
-    t.status,
-    t.priority,
-    t.assignee_name,
-    getTaskLabels(t.id).join('; '),
-    t.sprint_name,
-    t.milestone_name,
-    t.start_date,
-    t.due_date,
-    t.estimated_hours,
-    t.time_spent,
-    t.description
-  ]);
+  const rows = [];
+  for (const t of tasks) {
+    rows.push([
+      t.id,
+      t.title,
+      t.status,
+      t.priority,
+      t.assignee_name,
+      (await getTaskLabels(t.id)).join('; '),
+      t.sprint_name,
+      t.milestone_name,
+      t.start_date,
+      t.due_date,
+      t.estimated_hours,
+      t.time_spent,
+      t.description
+    ]);
+  }
 
   const csv = [headers, ...rows].map(row => row.map(csvEscape).join(',')).join('\r\n');
 
@@ -297,9 +307,9 @@ router.get('/mine/export', (req, res) => {
   res.send(csv);
 });
 
-router.post('/project/:projectId', requireRole('admin', 'member'), (req, res) => {
+router.post('/project/:projectId', requireRole('admin', 'member'), async (req, res) => {
   const { projectId } = req.params;
-  const project = db.prepare('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL').get(projectId);
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL').get(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
   const { title, description, status, priority, due_date, assignee_id, labels, start_date, estimated_hours, time_spent, reporter_id, archived, parent_id, recurrence, recurrence_end, sprint_id, milestone_id, start_time, end_time } = req.body;
@@ -313,27 +323,27 @@ router.post('/project/:projectId', requireRole('admin', 'member'), (req, res) =>
   if (!isValidTime(end_time)) return res.status(400).json({ error: 'Invalid end_time format (expected HH:MM)' });
 
   if (sprint_id != null) {
-    const sprint = db.prepare('SELECT * FROM sprints WHERE id = ?').get(sprint_id);
+    const sprint = await db.prepare('SELECT * FROM sprints WHERE id = ?').get(sprint_id);
     if (!sprint) return res.status(400).json({ error: 'Sprint not found' });
     if (sprint.project_id !== Number(projectId)) return res.status(400).json({ error: 'Sprint must belong to the same project' });
   }
   if (milestone_id != null) {
-    const milestone = db.prepare('SELECT * FROM milestones WHERE id = ?').get(milestone_id);
+    const milestone = await db.prepare('SELECT * FROM milestones WHERE id = ?').get(milestone_id);
     if (!milestone) return res.status(400).json({ error: 'Milestone not found' });
     if (milestone.project_id !== Number(projectId)) return res.status(400).json({ error: 'Milestone must belong to the same project' });
   }
 
   if (parent_id != null) {
-    const parent = db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(parent_id);
+    const parent = await db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(parent_id);
     if (!parent) return res.status(400).json({ error: 'Parent task not found' });
     if (parent.project_id !== Number(projectId)) return res.status(400).json({ error: 'Parent task must belong to the same project' });
   }
 
-  const maxPos = db.prepare(
+  const maxPos = await db.prepare(
     'SELECT COALESCE(MAX(position), -1) as maxPos FROM tasks WHERE project_id = ? AND status = ?'
   ).get(projectId, status || 'todo');
 
-  const result = db.prepare(`
+  const result = await db.prepare(`
     INSERT INTO tasks (project_id, title, description, status, priority, due_date, assignee_id, position, labels, start_date, estimated_hours, time_spent, reporter_id, archived, parent_id, recurrence, recurrence_end, sprint_id, milestone_id, start_time, end_time)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
@@ -360,11 +370,11 @@ router.post('/project/:projectId', requireRole('admin', 'member'), (req, res) =>
     end_time || null
   );
 
-  const task = getTaskWithDeps(result.lastInsertRowid);
+  const task = await getTaskWithDeps(result.lastInsertRowid);
 
-  syncTaskLabels(task.id, labels || '');
+  await syncTaskLabels(task.id, labels || '');
 
-  const taskWithLabels = getTaskWithDeps(result.lastInsertRowid);
+  const taskWithLabels = await getTaskWithDeps(result.lastInsertRowid);
 
   logActivity(req.user.id, 'task.created', 'task', taskWithLabels.id, taskWithLabels.title);
 
@@ -375,34 +385,34 @@ router.post('/project/:projectId', requireRole('admin', 'member'), (req, res) =>
   res.status(201).json(taskWithLabels);
 });
 
-router.post('/:id/duplicate', requireRole('admin', 'member'), (req, res) => {
+router.post('/:id/duplicate', requireRole('admin', 'member'), async (req, res) => {
   const { id } = req.params;
-  const source = db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
+  const source = await db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!source) return res.status(404).json({ error: 'Task not found' });
 
   let sprintId = source.sprint_id;
   if (sprintId != null) {
-    const sprint = db.prepare('SELECT project_id FROM sprints WHERE id = ?').get(sprintId);
+    const sprint = await db.prepare('SELECT project_id FROM sprints WHERE id = ?').get(sprintId);
     if (!sprint || sprint.project_id !== source.project_id) sprintId = null;
   }
 
   let milestoneId = source.milestone_id;
   if (milestoneId != null) {
-    const milestone = db.prepare('SELECT project_id FROM milestones WHERE id = ?').get(milestoneId);
+    const milestone = await db.prepare('SELECT project_id FROM milestones WHERE id = ?').get(milestoneId);
     if (!milestone || milestone.project_id !== source.project_id) milestoneId = null;
   }
 
   let parentId = source.parent_id;
   if (parentId != null) {
-    const parent = db.prepare('SELECT project_id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(parentId);
+    const parent = await db.prepare('SELECT project_id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(parentId);
     if (!parent || parent.project_id !== source.project_id) parentId = null;
   }
 
-  const maxPos = db.prepare(
+  const maxPos = await db.prepare(
     'SELECT COALESCE(MAX(position), -1) as maxPos FROM tasks WHERE project_id = ? AND status = ?'
   ).get(source.project_id, 'todo');
 
-  const result = db.prepare(`
+  const result = await db.prepare(`
     INSERT INTO tasks (project_id, title, description, status, priority, due_date, assignee_id, position, labels, start_date, estimated_hours, time_spent, reporter_id, archived, parent_id, recurrence, recurrence_end, sprint_id, milestone_id, start_time, end_time)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
@@ -431,18 +441,18 @@ router.post('/:id/duplicate', requireRole('admin', 'member'), (req, res) => {
 
   const newId = result.lastInsertRowid;
 
-  syncTaskLabels(newId, source.labels || '');
+  await syncTaskLabels(newId, source.labels || '');
 
-  const newTask = getTaskWithDeps(newId);
+  const newTask = await getTaskWithDeps(newId);
 
   logActivity(req.user.id, 'task.duplicated', 'task', newId, newTask.title, { from: source.id });
 
   res.status(201).json(newTask);
 });
 
-router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
+router.patch('/:id', requireRole('admin', 'member'), async (req, res) => {
   const { id } = req.params;
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
+  const task = await db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
   if (req.body.status !== undefined && !VALID_STATUS.includes(req.body.status)) return res.status(400).json({ error: 'Invalid status' });
@@ -458,10 +468,10 @@ router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
       if (Number(newParentId) === Number(id)) {
         return res.status(400).json({ error: 'A task cannot be its own parent' });
       }
-      const parent = db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(newParentId);
+      const parent = await db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(newParentId);
       if (!parent) return res.status(400).json({ error: 'Parent task not found' });
       if (parent.project_id !== task.project_id) return res.status(400).json({ error: 'Parent task must belong to the same project' });
-      const descendants = getDescendantIds(Number(id));
+      const descendants = await getDescendantIds(Number(id));
       if (descendants.has(Number(newParentId))) {
         return res.status(400).json({ error: 'Cannot set a descendant as parent (cycle detected)' });
       }
@@ -470,32 +480,32 @@ router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
 
   if (req.body.project_id !== undefined && req.body.project_id != null) {
     const newProjectId = Number(req.body.project_id);
-    const targetProject = db.prepare('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL').get(newProjectId);
+    const targetProject = await db.prepare('SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL').get(newProjectId);
     if (!targetProject) return res.status(400).json({ error: 'Project not found' });
 
     if (newProjectId !== Number(task.project_id)) {
       if (req.body.sprint_id === undefined && task.sprint_id != null) {
-        const sprint = db.prepare('SELECT project_id FROM sprints WHERE id = ?').get(task.sprint_id);
+        const sprint = await db.prepare('SELECT project_id FROM sprints WHERE id = ?').get(task.sprint_id);
         if (!sprint || sprint.project_id !== newProjectId) req.body.sprint_id = null;
       }
       if (req.body.milestone_id === undefined && task.milestone_id != null) {
-        const milestone = db.prepare('SELECT project_id FROM milestones WHERE id = ?').get(task.milestone_id);
+        const milestone = await db.prepare('SELECT project_id FROM milestones WHERE id = ?').get(task.milestone_id);
         if (!milestone || milestone.project_id !== newProjectId) req.body.milestone_id = null;
       }
       if (req.body.parent_id === undefined && task.parent_id != null) {
-        const parent = db.prepare('SELECT project_id FROM tasks WHERE id = ?').get(task.parent_id);
+        const parent = await db.prepare('SELECT project_id FROM tasks WHERE id = ?').get(task.parent_id);
         if (!parent || parent.project_id !== newProjectId) req.body.parent_id = null;
       }
     }
   }
 
   if (req.body.sprint_id !== undefined && req.body.sprint_id != null) {
-    const sprint = db.prepare('SELECT * FROM sprints WHERE id = ?').get(req.body.sprint_id);
+    const sprint = await db.prepare('SELECT * FROM sprints WHERE id = ?').get(req.body.sprint_id);
     if (!sprint) return res.status(400).json({ error: 'Sprint not found' });
     if (sprint.project_id !== task.project_id) return res.status(400).json({ error: 'Sprint must belong to the same project' });
   }
   if (req.body.milestone_id !== undefined && req.body.milestone_id != null) {
-    const milestone = db.prepare('SELECT * FROM milestones WHERE id = ?').get(req.body.milestone_id);
+    const milestone = await db.prepare('SELECT * FROM milestones WHERE id = ?').get(req.body.milestone_id);
     if (!milestone) return res.status(400).json({ error: 'Milestone not found' });
     if (milestone.project_id !== task.project_id) return res.status(400).json({ error: 'Milestone must belong to the same project' });
   }
@@ -511,21 +521,21 @@ router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
     }
   }
 
-  if (updates.length === 0) return res.json(getTaskWithDeps(id));
+  if (updates.length === 0) return res.json(await getTaskWithDeps(id));
 
   updates.push("updated_at = datetime('now')");
   values.push(id);
 
-  db.prepare(`UPDATE tasks SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+  await db.prepare(`UPDATE tasks SET ${updates.join(', ')} WHERE id = ?`).run(...values);
 
   if (req.body.labels !== undefined) {
-    syncTaskLabels(id, req.body.labels);
+    await syncTaskLabels(id, req.body.labels);
   }
 
-  const updated = getTaskWithDeps(id);
+  const updated = await getTaskWithDeps(id);
 
   if (req.body.status !== undefined && req.body.status !== task.status) {
-    db.prepare('INSERT INTO task_status_history (task_id, status, user_id) VALUES (?, ?, ?)')
+    await db.prepare('INSERT INTO task_status_history (task_id, status, user_id) VALUES (?, ?, ?)')
       .run(id, updated.status, req.user.id || null);
     logActivity(req.user.id, 'task.status_changed', 'task', updated.id, updated.title, { from: task.status, to: updated.status });
   }
@@ -546,65 +556,65 @@ router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
   }
 
   if (req.body.status === 'done' && task.status !== 'done') {
-    createNextOccurrence(updated);
+    await createNextOccurrence(updated);
     notifyDependencyDone(updated);
   }
 
   res.json(updated);
 });
 
-router.delete('/:id', requireRole('admin', 'member'), (req, res) => {
+router.delete('/:id', requireRole('admin', 'member'), async (req, res) => {
   const { id } = req.params;
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
+  const task = await db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
-  db.prepare("UPDATE tasks SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(id);
+  await db.prepare("UPDATE tasks SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(id);
 
   logActivity(req.user.id, 'task.deleted', 'task', id, task.title);
 
   res.json({ success: true });
 });
 
-router.post('/:id/reorder', requireRole('admin', 'member'), (req, res) => {
+router.post('/:id/reorder', requireRole('admin', 'member'), async (req, res) => {
   const { id } = req.params;
   const { status, position } = req.body;
 
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
+  const task = await db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
   const oldStatus = task.status;
   const oldPosition = task.position;
 
   if (status !== undefined) {
-    db.prepare('UPDATE tasks SET status = ?, position = ?, updated_at = datetime(\'now\') WHERE id = ?')
+    await db.prepare('UPDATE tasks SET status = ?, position = ?, updated_at = datetime(\'now\') WHERE id = ?')
       .run(status, position ?? 0, id);
   } else {
-    db.prepare('UPDATE tasks SET position = ?, updated_at = datetime(\'now\') WHERE id = ?')
+    await db.prepare('UPDATE tasks SET position = ?, updated_at = datetime(\'now\') WHERE id = ?')
       .run(position ?? 0, id);
   }
 
   const newStatus = status !== undefined ? status : oldStatus;
 
-  const siblings = db.prepare(
+  const siblings = await db.prepare(
     'SELECT id FROM tasks WHERE project_id = ? AND status = ? AND id != ? AND deleted_at IS NULL ORDER BY position ASC'
   ).all(task.project_id, newStatus, id);
 
   const updatePos = db.prepare('UPDATE tasks SET position = ?, updated_at = datetime(\'now\') WHERE id = ?');
-  const txn = db.transaction(() => {
+  const txn = db.transaction(async () => {
     for (let i = 0; i < siblings.length; i++) {
-      updatePos.run(i >= (position ?? 0) ? i + 1 : i, siblings[i].id);
+      await updatePos.run(i >= (position ?? 0) ? i + 1 : i, siblings[i].id);
     }
   });
-  txn();
+  await txn();
 
-  const updated = getTaskWithDeps(id);
+  const updated = await getTaskWithDeps(id);
 
   if (status !== undefined && status !== oldStatus) {
-    db.prepare('INSERT INTO task_status_history (task_id, status, user_id) VALUES (?, ?, ?)')
+    await db.prepare('INSERT INTO task_status_history (task_id, status, user_id) VALUES (?, ?, ?)')
       .run(id, status, req.user.id || null);
     logActivity(req.user.id, 'task.status_changed', 'task', updated.id, updated.title, { from: oldStatus, to: status });
     if (status === 'done' && oldStatus !== 'done') {
-      createNextOccurrence(updated);
+      await createNextOccurrence(updated);
       notifyDependencyDone(updated);
     }
   }
@@ -612,16 +622,16 @@ router.post('/:id/reorder', requireRole('admin', 'member'), (req, res) => {
   res.json(updated);
 });
 
-router.post('/:id/dependencies', requireRole('admin', 'member'), (req, res) => {
+router.post('/:id/dependencies', requireRole('admin', 'member'), async (req, res) => {
   const { id } = req.params;
   const { depends_on_id } = req.body;
 
   if (depends_on_id == null) return res.status(400).json({ error: 'depends_on_id is required' });
 
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
+  const task = await db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
-  const dep = db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(depends_on_id);
+  const dep = await db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(depends_on_id);
   if (!dep) return res.status(404).json({ error: 'Dependency task not found' });
 
   if (Number(id) === Number(depends_on_id)) {
@@ -631,7 +641,7 @@ router.post('/:id/dependencies', requireRole('admin', 'member'), (req, res) => {
     return res.status(400).json({ error: 'Dependency must belong to the same project' });
   }
 
-  const existing = db.prepare('SELECT id FROM task_dependencies WHERE task_id = ? AND depends_on_id = ?').get(id, depends_on_id);
+  const existing = await db.prepare('SELECT id FROM task_dependencies WHERE task_id = ? AND depends_on_id = ?').get(id, depends_on_id);
   if (existing) return res.status(400).json({ error: 'Dependency already exists' });
 
   const visited = new Set();
@@ -643,47 +653,47 @@ router.post('/:id/dependencies', requireRole('admin', 'member'), (req, res) => {
     }
     if (visited.has(current)) continue;
     visited.add(current);
-    const deps = db.prepare('SELECT depends_on_id FROM task_dependencies WHERE task_id = ?').all(current);
+    const deps = await db.prepare('SELECT depends_on_id FROM task_dependencies WHERE task_id = ?').all(current);
     for (const d of deps) queue.push(d.depends_on_id);
   }
 
-  db.prepare('INSERT INTO task_dependencies (task_id, depends_on_id) VALUES (?, ?)').run(id, depends_on_id);
+  await db.prepare('INSERT INTO task_dependencies (task_id, depends_on_id) VALUES (?, ?)').run(id, depends_on_id);
 
   logActivity(req.user.id, 'task.dependency_added', 'task', id, task.title, { depends_on_id, depends_on_title: dep.title });
 
-  res.status(201).json(getTaskWithDeps(id));
+  res.status(201).json(await getTaskWithDeps(id));
 });
 
-router.delete('/:id/dependencies/:dependsOnId', requireRole('admin', 'member'), (req, res) => {
+router.delete('/:id/dependencies/:dependsOnId', requireRole('admin', 'member'), async (req, res) => {
   const { id, dependsOnId } = req.params;
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
+  const task = await db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
-  db.prepare('DELETE FROM task_dependencies WHERE task_id = ? AND depends_on_id = ?').run(id, dependsOnId);
+  await db.prepare('DELETE FROM task_dependencies WHERE task_id = ? AND depends_on_id = ?').run(id, dependsOnId);
 
   logActivity(req.user.id, 'task.dependency_removed', 'task', id, task.title, { depends_on_id: dependsOnId });
 
-  res.json(getTaskWithDeps(id));
+  res.json(await getTaskWithDeps(id));
 });
 
-router.delete('/:id/dependencies', requireRole('admin', 'member'), (req, res) => {
+router.delete('/:id/dependencies', requireRole('admin', 'member'), async (req, res) => {
   const { id } = req.params;
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
+  const task = await db.prepare('SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
-  db.prepare('DELETE FROM task_dependencies WHERE task_id = ?').run(id);
+  await db.prepare('DELETE FROM task_dependencies WHERE task_id = ?').run(id);
 
   logActivity(req.user.id, 'task.dependencies_cleared', 'task', id, task.title);
 
-  res.json(getTaskWithDeps(id));
+  res.json(await getTaskWithDeps(id));
 });
 
-router.get('/:id/status-history', (req, res) => {
+router.get('/:id/status-history', async (req, res) => {
   const { id } = req.params;
-  const task = db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
+  const task = await db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
-  const history = db.prepare(`
+  const history = await db.prepare(`
     SELECT h.id, h.status, h.user_id, h.changed_at, u.name as user_name
     FROM task_status_history h
     LEFT JOIN users u ON u.id = h.user_id
@@ -693,40 +703,40 @@ router.get('/:id/status-history', (req, res) => {
   res.json(history);
 });
 
-router.get('/:id/checklist', (req, res) => {
+router.get('/:id/checklist', async (req, res) => {
   const { id } = req.params;
-  const task = db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
+  const task = await db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
-  const items = db.prepare(
+  const items = await db.prepare(
     'SELECT * FROM task_checklist WHERE task_id = ? ORDER BY position ASC, id ASC'
   ).all(id);
   res.json(items);
 });
 
-router.post('/:id/checklist', requireRole('admin', 'member'), (req, res) => {
+router.post('/:id/checklist', requireRole('admin', 'member'), async (req, res) => {
   const { id } = req.params;
   const { text } = req.body;
   if (!text || !text.trim()) return res.status(400).json({ error: 'text is required' });
 
-  const task = db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
+  const task = await db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
-  const maxPos = db.prepare(
+  const maxPos = await db.prepare(
     'SELECT COALESCE(MAX(position), -1) as maxPos FROM task_checklist WHERE task_id = ?'
   ).get(id);
 
-  const result = db.prepare(
+  const result = await db.prepare(
     'INSERT INTO task_checklist (task_id, text, position) VALUES (?, ?, ?)'
   ).run(id, text.trim(), maxPos.maxPos + 1);
 
-  const item = db.prepare('SELECT * FROM task_checklist WHERE id = ?').get(result.lastInsertRowid);
+  const item = await db.prepare('SELECT * FROM task_checklist WHERE id = ?').get(result.lastInsertRowid);
   res.status(201).json(item);
 });
 
-router.patch('/checklist/:itemId', requireRole('admin', 'member'), (req, res) => {
+router.patch('/checklist/:itemId', requireRole('admin', 'member'), async (req, res) => {
   const { itemId } = req.params;
-  const item = db.prepare('SELECT * FROM task_checklist WHERE id = ?').get(itemId);
+  const item = await db.prepare('SELECT * FROM task_checklist WHERE id = ?').get(itemId);
   if (!item) return res.status(404).json({ error: 'Checklist item not found' });
 
   const updates = [];
@@ -744,48 +754,48 @@ router.patch('/checklist/:itemId', requireRole('admin', 'member'), (req, res) =>
   if (updates.length === 0) return res.json(item);
 
   values.push(itemId);
-  db.prepare(`UPDATE task_checklist SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+  await db.prepare(`UPDATE task_checklist SET ${updates.join(', ')} WHERE id = ?`).run(...values);
 
-  res.json(db.prepare('SELECT * FROM task_checklist WHERE id = ?').get(itemId));
+  res.json(await db.prepare('SELECT * FROM task_checklist WHERE id = ?').get(itemId));
 });
 
-router.delete('/checklist/:itemId', requireRole('admin', 'member'), (req, res) => {
+router.delete('/checklist/:itemId', requireRole('admin', 'member'), async (req, res) => {
   const { itemId } = req.params;
-  const item = db.prepare('SELECT * FROM task_checklist WHERE id = ?').get(itemId);
+  const item = await db.prepare('SELECT * FROM task_checklist WHERE id = ?').get(itemId);
   if (!item) return res.status(404).json({ error: 'Checklist item not found' });
 
-  db.prepare('DELETE FROM task_checklist WHERE id = ?').run(itemId);
+  await db.prepare('DELETE FROM task_checklist WHERE id = ?').run(itemId);
   res.json({ success: true });
 });
 
-router.post('/:id/checklist/reorder', requireRole('admin', 'member'), (req, res) => {
+router.post('/:id/checklist/reorder', requireRole('admin', 'member'), async (req, res) => {
   const { id } = req.params;
   const { orderedIds } = req.body;
   if (!Array.isArray(orderedIds)) return res.status(400).json({ error: 'orderedIds is required' });
 
-  const task = db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
+  const task = await db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
   const updatePos = db.prepare('UPDATE task_checklist SET position = ? WHERE id = ? AND task_id = ?');
-  const txn = db.transaction(() => {
-    orderedIds.forEach((itemId, index) => {
-      updatePos.run(index, itemId, id);
-    });
+  const txn = db.transaction(async () => {
+    for (let index = 0; index < orderedIds.length; index++) {
+      await updatePos.run(index, orderedIds[index], id);
+    }
   });
-  txn();
+  await txn();
 
-  const items = db.prepare(
+  const items = await db.prepare(
     'SELECT * FROM task_checklist WHERE task_id = ? ORDER BY position ASC, id ASC'
   ).all(id);
   res.json(items);
 });
 
-router.get('/:id/time-entries', (req, res) => {
+router.get('/:id/time-entries', async (req, res) => {
   const { id } = req.params;
-  const task = db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
+  const task = await db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
-  const entries = db.prepare(`
+  const entries = await db.prepare(`
     SELECT e.*, u.name as user_name
     FROM time_entries e
     LEFT JOIN users u ON u.id = e.user_id
@@ -795,11 +805,11 @@ router.get('/:id/time-entries', (req, res) => {
   res.json(entries);
 });
 
-router.post('/:id/time-entries', requireRole('admin', 'member'), (req, res) => {
+router.post('/:id/time-entries', requireRole('admin', 'member'), async (req, res) => {
   const { id } = req.params;
   const { minutes, note, started_at, ended_at } = req.body;
 
-  const task = db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
+  const task = await db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
   const mins = Number(minutes);
@@ -807,39 +817,39 @@ router.post('/:id/time-entries', requireRole('admin', 'member'), (req, res) => {
     return res.status(400).json({ error: 'minutes must be a non-negative number' });
   }
 
-  const result = db.prepare(
+  const result = await db.prepare(
     'INSERT INTO time_entries (task_id, user_id, started_at, ended_at, minutes, note) VALUES (?, ?, ?, ?, ?, ?)'
   ).run(id, req.user.id || null, started_at || null, ended_at || null, mins, note || null);
 
   recomputeTimeSpent(id);
 
-  const entry = db.prepare('SELECT * FROM time_entries WHERE id = ?').get(result.lastInsertRowid);
+  const entry = await db.prepare('SELECT * FROM time_entries WHERE id = ?').get(result.lastInsertRowid);
   res.status(201).json(entry);
 });
 
-router.get('/:id/watchers', (req, res) => {
+router.get('/:id/watchers', async (req, res) => {
   const { id } = req.params;
-  const task = db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
+  const task = await db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
-  res.json(getWatchers(id));
+  res.json(await getWatchers(id));
 });
 
-router.post('/:id/watchers', requireRole('admin', 'member'), (req, res) => {
+router.post('/:id/watchers', requireRole('admin', 'member'), async (req, res) => {
   const { id } = req.params;
-  const task = db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
+  const task = await db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
-  db.prepare('INSERT OR IGNORE INTO task_watchers (task_id, user_id) VALUES (?, ?)').run(id, req.user.id);
-  res.status(201).json(getWatchers(id));
+  await db.prepare('INSERT OR IGNORE INTO task_watchers (task_id, user_id) VALUES (?, ?)').run(id, req.user.id);
+  res.status(201).json(await getWatchers(id));
 });
 
-router.delete('/:id/watchers', requireRole('admin', 'member'), (req, res) => {
+router.delete('/:id/watchers', requireRole('admin', 'member'), async (req, res) => {
   const { id } = req.params;
-  const task = db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
+  const task = await db.prepare('SELECT id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
-  db.prepare('DELETE FROM task_watchers WHERE task_id = ? AND user_id = ?').run(id, req.user.id);
-  res.json(getWatchers(id));
+  await db.prepare('DELETE FROM task_watchers WHERE task_id = ? AND user_id = ?').run(id, req.user.id);
+  res.json(await getWatchers(id));
 });
 
 export default router;
