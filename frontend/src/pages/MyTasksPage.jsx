@@ -47,6 +47,29 @@ export default function MyTasksPage() {
   const [filterSprint, setFilterSprint] = useState('');
   const [filterMilestone, setFilterMilestone] = useState('');
 
+  const anyFilter =
+    search !== '' ||
+    sortBy !== '' ||
+    sortDir !== 'asc' ||
+    dueFilter !== '' ||
+    priorityFilter !== '' ||
+    assigneeFilter !== '' ||
+    labelFilter !== '' ||
+    filterSprint !== '' ||
+    filterMilestone !== '';
+
+  const clearFilters = () => {
+    setSearch('');
+    setSortBy('');
+    setSortDir('asc');
+    setDueFilter('');
+    setPriorityFilter('');
+    setAssigneeFilter('');
+    setLabelFilter('');
+    setFilterSprint('');
+    setFilterMilestone('');
+  };
+
   useEffect(() => {
     apiFetch('/tasks/mine')
       .then(setTasks)
@@ -290,6 +313,11 @@ export default function MyTasksPage() {
             <option key={m} value={m}>{m}</option>
           ))}
         </select>
+        {anyFilter && (
+          <button type="button" className="toolbar-clear" onClick={clearFilters}>
+            Clear filters
+          </button>
+        )}
       </div>
 
       <div className="my-tasks-chips">
