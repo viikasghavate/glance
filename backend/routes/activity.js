@@ -7,13 +7,17 @@ const router = Router();
 router.use(requireAuth);
 
 router.get('/', async (req, res) => {
-  const { project_id, entity_type, q, limit } = req.query;
+  const { project_id, entity_type, q, user_id, limit } = req.query;
   const conditions = [];
   const values = [];
 
   if (project_id) {
     conditions.push(`a.entity_type = 'task' AND t.project_id = ?`);
     values.push(project_id);
+  }
+  if (user_id) {
+    conditions.push('a.user_id = ?');
+    values.push(user_id);
   }
   if (entity_type) {
     conditions.push('a.entity_type = ?');
@@ -48,13 +52,17 @@ function csvEscape(value) {
 }
 
 router.get('/export', async (req, res) => {
-  const { project_id, entity_type, q } = req.query;
+  const { project_id, entity_type, q, user_id } = req.query;
   const conditions = [];
   const values = [];
 
   if (project_id) {
     conditions.push(`a.entity_type = 'task' AND t.project_id = ?`);
     values.push(project_id);
+  }
+  if (user_id) {
+    conditions.push('a.user_id = ?');
+    values.push(user_id);
   }
   if (entity_type) {
     conditions.push('a.entity_type = ?');

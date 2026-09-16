@@ -121,6 +121,8 @@ export default function ActivityLogPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [userId, setUserId] = useState('');
   const [entityType, setEntityType] = useState('');
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -129,6 +131,7 @@ export default function ActivityLogPage() {
   const [exporting, setExporting] = useState(false);
   const prevEntityRef = useRef('');
   const prevQueryRef = useRef('');
+  const prevUserIdRef = useRef('');
   const debounceRef = useRef(null);
 
   const load = useCallback(async (type, reset) => {
@@ -140,6 +143,7 @@ export default function ActivityLogPage() {
       params.set('limit', String(limit));
       if (type) params.set('entity_type', type);
       if (debouncedQuery) params.set('q', debouncedQuery);
+      if (userId) params.set('user_id', userId);
       const data = await apiFetch(`/activity?${params.toString()}`);
       const list = Array.isArray(data) ? data : [];
       if (reset) {
@@ -158,18 +162,25 @@ export default function ActivityLogPage() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [apiFetch, limit, debouncedQuery]);
+  }, [apiFetch, limit, debouncedQuery, userId]);
 
   const isFirstLoad = useRef(true);
 
   useEffect(() => {
-    const reset = isFirstLoad.current || entityType !== prevEntityRef.current || debouncedQuery !== prevQueryRef.current;
+    apiFetch('/users').then(data => {
+      setUsers(Array.isArray(data) ? data : []);
+    }).catch(() => {});
+  }, [apiFetch]);
+
+  useEffect(() => {
+    const reset = isFirstLoad.current || entityType !== prevEntityRef.current || debouncedQuery !== prevQueryRef.current || userId !== prevUserIdRef.current;
     isFirstLoad.current = false;
     prevEntityRef.current = entityType;
     prevQueryRef.current = debouncedQuery;
+    prevUserIdRef.current = userId;
     load(entityType, reset);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityType, debouncedQuery, limit]);
+  }, [entityType, debouncedQuery, limit, userId]);
 
   useEffect(() => {
     clearTimeout(debounceRef.current);
@@ -189,6 +200,11 @@ export default function ActivityLogPage() {
     setEntityType(e.target.value);
   };
 
+  const handleUserIdChange = (e) => {
+    setLimit(PAGE_SIZE);
+    setUserId(e.target.value);
+  };
+
   const handleLoadMore = () => {
     setLimit(prev => Math.min(prev + PAGE_SIZE, 200));
   };
@@ -200,6 +216,7 @@ export default function ActivityLogPage() {
       const params = new URLSearchParams();
       if (entityType) params.set('entity_type', entityType);
       if (debouncedQuery) params.set('q', debouncedQuery);
+      if (userId) params.set('user_id', userId);
       const qs = params.toString();
       const res = await fetch(`/api/activity/export${qs ? `?${qs}` : ''}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -245,6 +262,16 @@ export default function ActivityLogPage() {
         >
           {ENTITY_FILTERS.map(f => (
             <option key={f.value} value={f.value}>{f.label}</option>
+          ))}
+        </select>
+        <select
+          className="activity-filter-select"
+          value={userId}
+          onChange={handleUserIdChange}
+        >
+          <option value="">All Users</option>
+          {users.map(u => (
+            <option key={u.id} value={u.id}>{u.name}</option>
           ))}
         </select>
         <button
