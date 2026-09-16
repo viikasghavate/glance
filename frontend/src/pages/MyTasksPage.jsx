@@ -105,6 +105,31 @@ export default function MyTasksPage() {
     return [...set].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
   }, [tasks]);
 
+  const handleExportCsv = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/tasks/mine/export', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        alert('Export failed.');
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'my-tasks.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      alert('Export failed.');
+    }
+  };
+
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
     let result = tasks;
@@ -200,6 +225,9 @@ export default function MyTasksPage() {
     <div className="my-tasks">
       <div className="page-header">
         <h1>My Tasks</h1>
+        <button className="btn-ghost" onClick={handleExportCsv}>
+          Export CSV
+        </button>
       </div>
 
       <div className="my-tasks-toolbar">
