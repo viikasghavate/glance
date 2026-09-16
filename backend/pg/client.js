@@ -4,19 +4,39 @@ import { AsyncLocalStorage } from 'async_hooks';
 
 const { Pool } = pg;
 
-// Runtime parse of the secrets env file — never read it at authoring time.
-function parseEnv(file) {
+// PG credentials come from environment variables first (this is what Coolify
+// injects inside the prod container), falling back to the local dev env file
+// only when the vars aren't set. NEVER hardcode a host path as the primary
+// source — it does not exist inside the docker container.
+function loadPgEnv() {
   const out = {};
-  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
-    const t = line.trim();
-    if (!t || t.startsWith('#') || !t.includes('=')) continue;
-    const i = t.indexOf('=');
-    out[t.slice(0, i).trim()] = t.slice(i + 1).trim();
+  const file = process.env.GLANCE_PG_ENV;
+  // env vars take priority (present in the container / Coolify)
+  for (const k of ['POSTGRES_HOST', 'POSTGRES_PORT', 'POSTGRES_USER', 'POSTGRES_PASSWORD', 'POSTGRES_DB']) {
+    if (process.env[k]) out[k] = process.env[k];
+  }
+  // fall back to the env file ONLY for the keys still missing (local dev)
+  if (file && fs.existsSync(file)) {
+    try {
+      for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+        const t = line.trim();
+        if (!t || t.startsWith('#') || !t.includes('=')) continue;
+        const i = t.indexOf('=');
+        const k = t.slice(0, i).trim();
+        if (!(k in out)) out[k] = t.slice(i + 1).trim();
+      }
+    } catch { /* ignore */ }
   }
   return out;
 }
 
-const env = parseEnv(process.env.GLANCE_PG_ENV || '/home/ubuntu/projects/glance/.pg/glance-pg.env');
+const env = loadPgEnv();
+
+// Validate we have what we need; throw a clear error if PG creds are absent.
+if (!env.POSTGRES_USER || !env.POSTGRES_PASSWORD || !env.POSTGRES_DB) {
+  console.error('PG client: missing POSTGRES_USER/PASSWORD/DB (set env vars or GLANCE_PG_ENV).');
+  throw new Error('Missing PostgreSQL credentials for DB_ENGINE=pg');
+}
 
 export const pgPool = new Pool({
   host: env.POSTGRES_HOST || 'glance-pg',
