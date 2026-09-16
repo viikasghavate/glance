@@ -52,8 +52,21 @@ router.get('/', async (req, res) => {
 
   const countMap = {};
   for (const c of counts) {
-    if (!countMap[c.project_id]) countMap[c.project_id] = { todo: 0, in_progress: 0, done: 0 };
+    if (!countMap[c.project_id]) countMap[c.project_id] = { todo: 0, in_progress: 0, done: 0, overdue: 0 };
     countMap[c.project_id][c.status] = c.count;
+  }
+
+  const overdueStmt = db.prepare(`
+    SELECT project_id, COUNT(*) as overdue
+    FROM tasks
+    WHERE deleted_at IS NULL AND project_id IN (${filtered.map(() => '?').join(',') || '0'})
+      AND status != 'done' AND due_date IS NOT NULL AND due_date < date('now')
+    GROUP BY project_id
+  `);
+  const overdueCounts = await overdueStmt.all(...filtered.map(p => p.id));
+  for (const c of overdueCounts) {
+    if (!countMap[c.project_id]) countMap[c.project_id] = { todo: 0, in_progress: 0, done: 0, overdue: 0 };
+    countMap[c.project_id].overdue = c.overdue;
   }
 
   const result = [];
@@ -62,7 +75,7 @@ router.get('/', async (req, res) => {
       ...p,
       archived: !!p.archived,
       tagList: await getProjectTags(p.id),
-      taskCounts: countMap[p.id] || { todo: 0, in_progress: 0, done: 0 }
+      taskCounts: countMap[p.id] || { todo: 0, in_progress: 0, done: 0, overdue: 0 }
     });
   }
 
@@ -119,7 +132,7 @@ router.post('/', requireRole('admin', 'member'), async (req, res) => {
     WHERE p.id = ?
   `).get(result.lastInsertRowid);
   project.archived = !!project.archived;
-  project.taskCounts = { todo: 0, in_progress: 0, done: 0 };
+  project.taskCounts = { todo: 0, in_progress: 0, done: 0, overdue: 0 };
   await syncProjectTags(project.id, tags || '');
   project.tagList = await getProjectTags(project.id);
   logActivity(req.user.id, 'project.created', 'project', project.id, project.name);

@@ -165,6 +165,8 @@
 .count-dot.todo { background: var(--cyan); box-shadow: var(--glow-cyan); }
 .count-dot.in_progress { background: var(--warning); box-shadow: var(--glow-warning); }
 .count-dot.done { background: var(--success); box-shadow: var(--glow-success); }
+.count-dot.overdue { background: var(--danger); box-shadow: var(--glow-danger); }
+.count-item.overdue { color: var(--danger); }
 
 .project-card-meta {
   display: flex;

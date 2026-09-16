@@ -234,6 +234,11 @@ export default function ProjectListPage() {
                   <span className="count-item"><span className="count-dot todo" /> {p.taskCounts?.todo || 0} To Do</span>
                   <span className="count-item"><span className="count-dot in_progress" /> {p.taskCounts?.in_progress || 0} In Progress</span>
                   <span className="count-item"><span className="count-dot done" /> {p.taskCounts?.done || 0} Done</span>
+                  {p.taskCounts?.overdue > 0 && (
+                    <span className="count-item overdue">
+                      <span className="count-dot overdue" /> {p.taskCounts.overdue} Overdue
+                    </span>
+                  )}
                 </div>
                 {!hasRole('viewer') && (
                   <div className="project-card-actions">
