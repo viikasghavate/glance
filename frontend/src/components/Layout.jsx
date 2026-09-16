@@ -211,20 +211,20 @@ export default function Layout() {
 
   const navApps = [
     {
-      name: 'Projects',
-      modules: [
-        { label: 'All Projects', to: '/projects' },
-        { label: 'My Tasks', to: '/mytasks' },
-        { label: 'Add Project', to: '/projects', action: openNewProjectModal },
-      ],
-    },
-    {
       name: 'Workspace',
       modules: [
         { label: 'Dashboard', to: '/' },
         { label: 'Activity', to: '/activity' },
         { label: 'Programs', to: '/ports' },
         { label: 'Portfolios', to: '/ports' },
+      ],
+    },
+    {
+      name: 'Projects',
+      modules: [
+        { label: 'All Projects', to: '/projects' },
+        { label: 'My Tasks', to: '/mytasks' },
+        { label: 'Add Project', to: '/projects', action: openNewProjectModal },
       ],
     },
     {
