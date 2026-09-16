@@ -22,6 +22,7 @@ export default function ProjectListPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('');
   const [sortDir, setSortDir] = useState('asc');
+  const [copiedId, setCopiedId] = useState(null);
 
   useEffect(() => {
     refreshProjects();
@@ -98,6 +99,40 @@ export default function ProjectListPage() {
     refreshProjects();
   };
 
+  const handleCopyLink = async (e, project) => {
+    e.stopPropagation();
+    const url = window.location.origin + '/project/' + project.id;
+    const fallbackCopy = () => {
+      const textarea = document.createElement('textarea');
+      textarea.value = url;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      try {
+        document.execCommand('copy');
+      } catch (err) {
+        console.error(err);
+      }
+      document.body.removeChild(textarea);
+    };
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        fallbackCopy();
+      }
+      setCopiedId(project.id);
+      setTimeout(() => setCopiedId(null), 1500);
+    } catch (err) {
+      console.error(err);
+      fallbackCopy();
+      setCopiedId(project.id);
+      setTimeout(() => setCopiedId(null), 1500);
+    }
+  };
+
   if (projectsLoading) return <div className="loading"><div className="spinner" /></div>;
 
   return (
@@ -164,7 +199,16 @@ export default function ProjectListPage() {
             <div key={p.id} className={`project-card ${p.archived ? 'archived' : ''}`}>
               <div className="project-card-bar" style={{ background: p.color }} />
               <div className="project-card-body">
-                <Link to={`/project/${p.id}`} className="project-card-name">{p.name}</Link>
+                <div className="project-card-title">
+                  <Link to={`/project/${p.id}`} className="project-card-name">{p.name}</Link>
+                  <button
+                    className="btn-ghost btn-sm"
+                    onClick={(e) => handleCopyLink(e, p)}
+                    title="Copy project link"
+                  >
+                    {copiedId === p.id ? 'Copied!' : 'Copy Link'}
+                  </button>
+                </div>
                 {p.description && <p className="project-card-desc">{p.description}</p>}
                 <div className="project-card-meta">
                   <span className={`badge badge-${p.status === 'active' ? 'done' : p.status === 'on_hold' ? 'medium' : p.status === 'completed' ? 'done' : 'low'}`}>
