@@ -7,7 +7,12 @@ export function UIProvider({ children }) {
   const { apiFetch } = useAuth();
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
-  const [view, setView] = useState('board');
+  const [view, setView] = useState(() => {
+    try {
+      const v = localStorage.getItem('glance_view');
+      return (v === 'board' || v === 'list' || v === 'timeline') ? v : 'board';
+    } catch { return 'board'; }
+  });
   const [breadcrumb, setBreadcrumb] = useState('');
   const [projects, setProjects] = useState([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
@@ -48,6 +53,7 @@ export function UIProvider({ children }) {
     }
   }, [apiFetch]);
 
+  useEffect(() => { try { localStorage.setItem('glance_view', view); } catch {} }, [view]);
   useEffect(() => { refreshProjects(); }, [refreshProjects]);
   useEffect(() => { refreshPortfolios(); }, [refreshPortfolios]);
   useEffect(() => { refreshUsers(); }, [refreshUsers]);
