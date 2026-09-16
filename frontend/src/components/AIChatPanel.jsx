@@ -54,6 +54,12 @@ export default function AIChatPanel() {
   }, [open]);
 
   useEffect(() => {
+    const handleOpen = () => setOpen(true);
+    window.addEventListener('glance:open-ai', handleOpen);
+    return () => window.removeEventListener('glance:open-ai', handleOpen);
+  }, []);
+
+  useEffect(() => {
     if (!open || !sessionId) return;
     let cancelled = false;
     (async () => {

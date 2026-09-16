@@ -85,6 +85,13 @@ const IconMoon = () => (
   </svg>
 );
 
+const IconSparkle = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+    <path d="M19 15l.7 1.8L21.5 17.5l-1.8.7L19 20l-.7-1.8L16.5 17.5l1.8-.7z" />
+  </svg>
+);
+
 const NAV_STORAGE_KEY = 'glance_nav_apps';
 const DEFAULT_APPS = { Projects: true, Workspace: true, People: false, Admin: false };
 
@@ -386,12 +393,13 @@ export default function Layout() {
             {theme === 'neon' ? <IconMoon /> : <IconSun />}
           </button>
           <div className="icon-rail-spacer" />
-          <button className="icon-rail-btn" onClick={openNewProjectModal} title="New Project">
-            <IconPlus />
+          <button
+            className="icon-rail-btn"
+            title="AI Assistant"
+            onClick={() => window.dispatchEvent(new CustomEvent('glance:open-ai'))}
+          >
+            <IconSparkle />
           </button>
-          <Link to="/projects" className="icon-rail-btn" title="New Task" style={{ display: 'inline-flex' }}>
-            <IconPlus />
-          </Link>
           <button
             className="icon-rail-btn icon-rail-collapse"
             title="Collapse sidebar"
