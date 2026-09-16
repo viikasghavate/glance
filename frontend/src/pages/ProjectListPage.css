@@ -56,6 +56,28 @@
   box-shadow: var(--glow-cyan);
 }
 
+.sort-toggle {
+  padding: 0.5rem 0.75rem;
+  background: rgba(20, 26, 40, 0.5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--text);
+  font-size: 0.875rem;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.sort-toggle:hover:not(:disabled) {
+  border-color: var(--cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+.sort-toggle:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .project-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));

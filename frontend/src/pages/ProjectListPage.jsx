@@ -20,27 +20,69 @@ export default function ProjectListPage() {
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('');
+  const [sortDir, setSortDir] = useState('asc');
 
   useEffect(() => {
     refreshProjects();
   }, [refreshProjects]);
 
-  const filteredProjects = projects.filter(p => {
-    const q = search.trim().toLowerCase();
-    const matchesSearch = !q ||
-      (p.name || '').toLowerCase().includes(q) ||
-      (p.owner_name || '').toLowerCase().includes(q) ||
-      (p.description || '').toLowerCase().includes(q);
+  const priorityIndex = { low: 0, medium: 1, high: 2 };
+  const statusIndex = { active: 0, on_hold: 1, completed: 2, archived: 3 };
 
-    let matchesStatus = true;
-    if (statusFilter === 'archived') {
-      matchesStatus = !!p.archived;
-    } else if (statusFilter !== 'all') {
-      matchesStatus = p.status === statusFilter;
-    }
+  const filteredProjects = projects
+    .filter(p => {
+      const q = search.trim().toLowerCase();
+      const matchesSearch = !q ||
+        (p.name || '').toLowerCase().includes(q) ||
+        (p.owner_name || '').toLowerCase().includes(q) ||
+        (p.description || '').toLowerCase().includes(q);
 
-    return matchesSearch && matchesStatus;
-  });
+      let matchesStatus = true;
+      if (statusFilter === 'archived') {
+        matchesStatus = !!p.archived;
+      } else if (statusFilter !== 'all') {
+        matchesStatus = p.status === statusFilter;
+      }
+
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      if (sortBy === '') return 0;
+      let cmp = 0;
+      if (sortBy === 'name') {
+        const av = (a.name || '').toLowerCase();
+        const bv = (b.name || '').toLowerCase();
+        cmp = av < bv ? -1 : av > bv ? 1 : 0;
+      } else if (sortBy === 'owner') {
+        const ao = a.owner_name ? String(a.owner_name).toLowerCase() : null;
+        const bo = b.owner_name ? String(b.owner_name).toLowerCase() : null;
+        if (ao === null && bo === null) return 0;
+        if (ao === null) return 1;
+        if (bo === null) return -1;
+        cmp = ao < bo ? -1 : ao > bo ? 1 : 0;
+      } else if (sortBy === 'priority') {
+        const ai = priorityIndex[a.priority] ?? 0;
+        const bi = priorityIndex[b.priority] ?? 0;
+        cmp = ai - bi;
+      } else if (sortBy === 'status') {
+        const ai = statusIndex[a.status] ?? 0;
+        const bi = statusIndex[b.status] ?? 0;
+        cmp = ai - bi;
+      } else if (sortBy === 'progress') {
+        const ap = Number(a.progress) || 0;
+        const bp = Number(b.progress) || 0;
+        cmp = ap - bp;
+      } else if (sortBy === 'due_date') {
+        const ad = a.due_date ? String(a.due_date) : null;
+        const bd = b.due_date ? String(b.due_date) : null;
+        if (ad === null && bd === null) return 0;
+        if (ad === null) return 1;
+        if (bd === null) return -1;
+        cmp = ad < bd ? -1 : ad > bd ? 1 : 0;
+      }
+      return sortDir === 'desc' ? -cmp : cmp;
+    });
 
   const handleDelete = async (project) => {
     if (!confirm(`Delete project "${project.name}"? This will also delete all tasks and comments.`)) return;
@@ -88,6 +130,28 @@ export default function ProjectListPage() {
           <option value="completed">Completed</option>
           <option value="archived">Archived</option>
         </select>
+        <select
+          className="project-status-filter"
+          value={sortBy}
+          onChange={e => setSortBy(e.target.value)}
+        >
+          <option value="">Sort by: None</option>
+          <option value="name">Sort by: Name</option>
+          <option value="priority">Sort by: Priority</option>
+          <option value="status">Sort by: Status</option>
+          <option value="progress">Sort by: Progress</option>
+          <option value="due_date">Sort by: Due Date</option>
+          <option value="owner">Sort by: Owner</option>
+        </select>
+        <button
+          type="button"
+          className="sort-toggle"
+          disabled={!sortBy}
+          onClick={() => setSortDir(dir => (dir === 'asc' ? 'desc' : 'asc'))}
+          title={sortDir === 'asc' ? 'Sort: Ascending' : 'Sort: Descending'}
+        >
+          {sortDir === 'asc' ? '▲' : '▼'}
+        </button>
       </div>
 
       {projects.length === 0 ? (
