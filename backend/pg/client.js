@@ -66,6 +66,7 @@ function parseModifier(mod) {
 // Replace '?' parameter markers with $1..$n, skipping ? inside '...' / "..."
 // string literals so a literal question mark is not turned into a param.
 function translateQ(sql) {
+  // 1) translate sqlite date helpers before anything else
   sql = sql
     .replace(/datetime\('now'\)/g, "to_char(now(),'YYYY-MM-DD HH24:MI:SS')")
     .replace(/datetime\('now',\s*'([^']+)'\)/g, (m, mod) => {
@@ -77,28 +78,60 @@ function translateQ(sql) {
       const v = parseModifier(mod);
       return `to_char(CURRENT_DATE${v},'YYYY-MM-DD')`;
     });
-  let out = '';
-  let i = 0;
+
+  // 1b) translate sqlite-only INSERT OR IGNORE -> PG ON CONFLICT DO NOTHING
+  //   "INSERT OR IGNORE INTO t (cols) VALUES ..." -> "INSERT INTO t (cols) ... ON CONFLICT DO NOTHING"
+  //   (ON CONFLICT must come AFTER the VALUES clause in PG, so append at the end).
+  if (/\bINSERT\s+OR\s+IGNORE\s+INTO\b/i.test(sql)) {
+    sql = sql.replace(/\bINSERT\s+OR\s+IGNORE\s+INTO\b/gi, 'INSERT INTO');
+    sql = sql.replace(/;\s*$/, '') + ' ON CONFLICT DO NOTHING';
+  }
+
+  // 2) quote camelCase AS aliases so pg preserves exact key case (pg folds
+  //    unquoted identifiers to lowercase; route code reading r.maxPos would get
+  //    undefined -> NaN -> 22P02 on int columns). Also quote those aliases in
+  //    ORDER BY / GROUP BY references so they stay in sync.
+  let out = sql.replace(/\b(?:AS|as)\s+([a-zA-Z_][a-zA-Z0-9_]*)/g, (m, alias) => ` AS "${alias}"`);
+  const aliases = [...new Set([...out.matchAll(/"([^"]+)"/g)].map((m) => m[1]))];
+  const caseful = aliases.filter((a) => /[A-Z]/.test(a));
+  if (caseful.length) {
+    out = out.replace(/\b(ORDER BY|GROUP BY)\b/g, (m) => `<<${m}`);
+    out = out
+      .split('<<')
+      .map((seg, i) => {
+        if (i === 0) return seg;
+        const head = seg.startsWith('ORDER BY') ? 'ORDER BY' : 'GROUP BY';
+        let body = seg.slice(head.length);
+        for (const alias of caseful) {
+          body = body.replace(new RegExp(`\\b${alias}\\b`, 'g'), `"${alias}"`);
+        }
+        return ` ${head}${body}`;
+      })
+      .join('');
+  }
+
+  // 3) rewrite bare ? -> $1..$n, skipping ? inside '...'/"..." string literals
   let n = 0;
-  let inStr = null; // null | "'" | '"'
-  while (i < sql.length) {
-    const ch = sql[i];
+  let i = 0;
+  let inStr = null;
+  let res = '';
+  while (i < out.length) {
+    const ch = out[i];
     if (inStr) {
-      out += ch;
+      res += ch;
       if (ch === inStr) {
-        // handle doubled-quote escape ('' / "" -> literal quote)
-        if (sql[i + 1] === inStr) { out += sql[i + 1]; i += 2; continue; }
+        if (out[i + 1] === inStr) { res += out[i + 1]; i += 2; continue; }
         inStr = null;
       }
       i++;
       continue;
     }
-    if (ch === "'" || ch === '"') { inStr = ch; out += ch; i++; continue; }
-    if (ch === '?') { n++; out += `$${n}`; i++; continue; }
-    out += ch;
+    if (ch === "'" || ch === '"') { inStr = ch; res += ch; i++; continue; }
+    if (ch === '?') { n++; res += `$${n}`; i++; continue; }
+    res += ch;
     i++;
   }
-  return { sql: out, paramCount: n };
+  return { sql: res, paramCount: n };
 }
 
 export const db = {
@@ -149,11 +182,23 @@ export async function dbAll(sql, params = []) {
 export async function dbRun(sql, params = []) {
   // better-sqlite3 run() returns { changes, lastInsertRowid }; routes do
   // run() then .get(lastInsertRowid). On pg, for INSERTs append RETURNING id.
-  if (/^\s*insert\s+into/i.test(sql)) {
+  // SKIP it for ON CONFLICT DO NOTHING (join tables with composite PK, e.g.
+  // task_watchers/project_tags/task_labels, have no id column) and for INSERTs
+  // into tables without an id column. Those call sites never read lastInsertRowid.
+  if (/^\s*insert\s+into/i.test(sql) && !/ON CONFLICT DO NOTHING/i.test(sql)) {
     const withRet = sql.replace(/;\s*$/, '') + ' RETURNING id';
-    const rr = await queryCurrent(withRet, oneParam(params));
-    const lastInsertRowid = rr.rows && rr.rows.length ? Number(rr.rows[0].id) : null;
-    return { changes: rr.rowCount ?? 0, lastInsertRowid };
+    try {
+      const rr = await queryCurrent(withRet, oneParam(params));
+      const lastInsertRowid = rr.rows && rr.rows.length ? Number(rr.rows[0].id) : null;
+      return { changes: rr.rowCount ?? 0, lastInsertRowid };
+    } catch (e) {
+      // If the table has no id column (join/child tables), fall back to a plain run.
+      if (/column "id" does not exist/i.test(e.message)) {
+        const r = await queryCurrent(sql, oneParam(params));
+        return { changes: r.rowCount ?? 0, lastInsertRowid: null };
+      }
+      throw e;
+    }
   }
   const r = await queryCurrent(sql, oneParam(params));
   return { changes: r.rowCount ?? 0, lastInsertRowid: null };

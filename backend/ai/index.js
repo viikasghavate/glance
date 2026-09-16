@@ -53,7 +53,7 @@ export async function runAssistant(user, history) {
             args = rawArgs;
           }
         }
-        const result = executeTool(call.function.name, user, args);
+        const result = await executeTool(call.function.name, user, args);
         messages.push({
           role: 'tool',
           content: typeof result === 'string' ? result : JSON.stringify(result)
@@ -62,7 +62,7 @@ export async function runAssistant(user, history) {
       continue;
     }
 
-    return verifyCounts(msg.content || '').reply;
+    return (await verifyCounts(msg.content || '')).reply;
   }
 
   return 'I could not complete that request.';
