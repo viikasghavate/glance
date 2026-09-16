@@ -7,7 +7,7 @@ const router = Router();
 router.use(requireAuth);
 
 router.get('/', (req, res) => {
-  const { project_id, entity_type, limit } = req.query;
+  const { project_id, entity_type, q, limit } = req.query;
   const conditions = [];
   const values = [];
 
@@ -18,6 +18,12 @@ router.get('/', (req, res) => {
   if (entity_type) {
     conditions.push('a.entity_type = ?');
     values.push(entity_type);
+  }
+  const trimmedQ = String(q || '').trim();
+  if (trimmedQ) {
+    conditions.push('(a.action LIKE ? OR a.entity_name LIKE ? OR a.entity_type LIKE ? OR u.name LIKE ? OR a.details LIKE ?)');
+    const like = `%${trimmedQ}%`;
+    values.push(like, like, like, like, like);
   }
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -42,7 +48,7 @@ function csvEscape(value) {
 }
 
 router.get('/export', (req, res) => {
-  const { project_id, entity_type } = req.query;
+  const { project_id, entity_type, q } = req.query;
   const conditions = [];
   const values = [];
 
@@ -53,6 +59,12 @@ router.get('/export', (req, res) => {
   if (entity_type) {
     conditions.push('a.entity_type = ?');
     values.push(entity_type);
+  }
+  const trimmedQ = String(q || '').trim();
+  if (trimmedQ) {
+    conditions.push('(a.action LIKE ? OR a.entity_name LIKE ? OR a.entity_type LIKE ? OR u.name LIKE ? OR a.details LIKE ?)');
+    const like = `%${trimmedQ}%`;
+    values.push(like, like, like, like, like);
   }
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';

@@ -122,10 +122,14 @@ export default function ActivityLogPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
   const [entityType, setEntityType] = useState('');
+  const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [limit, setLimit] = useState(PAGE_SIZE);
   const [hasMore, setHasMore] = useState(false);
   const [exporting, setExporting] = useState(false);
   const prevEntityRef = useRef('');
+  const prevQueryRef = useRef('');
+  const debounceRef = useRef(null);
 
   const load = useCallback(async (type, reset) => {
     if (reset) setLoading(true);
@@ -135,6 +139,7 @@ export default function ActivityLogPage() {
       const params = new URLSearchParams();
       params.set('limit', String(limit));
       if (type) params.set('entity_type', type);
+      if (debouncedQuery) params.set('q', debouncedQuery);
       const data = await apiFetch(`/activity?${params.toString()}`);
       const list = Array.isArray(data) ? data : [];
       if (reset) {
@@ -153,17 +158,31 @@ export default function ActivityLogPage() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [apiFetch, limit]);
+  }, [apiFetch, limit, debouncedQuery]);
 
   const isFirstLoad = useRef(true);
 
   useEffect(() => {
-    const reset = isFirstLoad.current || entityType !== prevEntityRef.current;
+    const reset = isFirstLoad.current || entityType !== prevEntityRef.current || debouncedQuery !== prevQueryRef.current;
     isFirstLoad.current = false;
     prevEntityRef.current = entityType;
+    prevQueryRef.current = debouncedQuery;
     load(entityType, reset);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityType, limit]);
+  }, [entityType, debouncedQuery, limit]);
+
+  useEffect(() => {
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedQuery(query.trim() ? query : '');
+      setLimit(PAGE_SIZE);
+    }, 300);
+    return () => clearTimeout(debounceRef.current);
+  }, [query]);
+
+  const handleQueryChange = (e) => {
+    setQuery(e.target.value);
+  };
 
   const handleEntityTypeChange = (e) => {
     setLimit(PAGE_SIZE);
@@ -178,8 +197,11 @@ export default function ActivityLogPage() {
     setExporting(true);
     try {
       const token = localStorage.getItem('token');
-      const query = entityType ? `?entity_type=${encodeURIComponent(entityType)}` : '';
-      const res = await fetch(`/api/activity/export${query}`, {
+      const params = new URLSearchParams();
+      if (entityType) params.set('entity_type', entityType);
+      if (debouncedQuery) params.set('q', debouncedQuery);
+      const qs = params.toString();
+      const res = await fetch(`/api/activity/export${qs ? `?${qs}` : ''}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
@@ -209,6 +231,13 @@ export default function ActivityLogPage() {
       </div>
 
       <div className="activity-filters">
+        <input
+          className="activity-filter-input"
+          type="text"
+          placeholder="Search activity…"
+          value={query}
+          onChange={handleQueryChange}
+        />
         <select
           className="activity-filter-select"
           value={entityType}
