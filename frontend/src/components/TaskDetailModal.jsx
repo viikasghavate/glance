@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import useCloseOnEsc from './useCloseOnEsc';
 import './TaskDetailModal.css';
 
 export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate, onDelete, onDuplicated, apiFetch, readOnly }) {
@@ -26,6 +27,8 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
   const [copied, setCopied] = useState(false);
   const [statusHistory, setStatusHistory] = useState([]);
   const [loadingStatusHistory, setLoadingStatusHistory] = useState(true);
+
+  useCloseOnEsc(onClose);
 
   const parentTask = tasks?.find(t => t.id === task.parent_id) || null;
   const subtasks = tasks?.filter(t => t.parent_id === task.id) || [];

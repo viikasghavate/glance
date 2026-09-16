@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import useCloseOnEsc from './useCloseOnEsc';
 
 export default function MemberModal({ onClose, onSave, member }) {
   const isEdit = !!member;
@@ -8,6 +9,8 @@ export default function MemberModal({ onClose, onSave, member }) {
   const [role, setRole] = useState(member?.role || 'member');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  useCloseOnEsc(onClose);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

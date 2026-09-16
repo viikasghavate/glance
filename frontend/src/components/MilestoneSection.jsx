@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import useCloseOnEsc from './useCloseOnEsc';
 
 const STATUS_LABELS = { open: 'Open', completed: 'Completed' };
 
@@ -24,6 +25,8 @@ export default function MilestoneSection({ projectId, milestones, onRefresh, api
   const [dueDate, setDueDate] = useState('');
   const [status, setStatus] = useState('open');
   const [submitting, setSubmitting] = useState(false);
+
+  useCloseOnEsc(showModal ? () => setShowModal(false) : null);
 
   const openCreate = () => {
     setEditing(null);

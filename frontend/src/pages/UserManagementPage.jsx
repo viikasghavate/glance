@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import MemberModal from '../components/MemberModal';
+import useCloseOnEsc from '../components/useCloseOnEsc';
 import './UserManagementPage.css';
 
 function timeAgo(dateStr) {
@@ -34,6 +35,9 @@ export default function UserManagementPage() {
   const [newPassword, setNewPassword] = useState('');
   const [resetError, setResetError] = useState('');
   const [resetSubmitting, setResetSubmitting] = useState(false);
+
+  useCloseOnEsc(resetUser ? () => setResetUser(null) : null);
+  useCloseOnEsc(confirmDelete ? () => setConfirmDelete(null) : null);
 
   useEffect(() => {
     if (!hasRole('admin')) {

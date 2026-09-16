@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import useCloseOnEsc from './useCloseOnEsc';
 
 const STATUS_LABELS = { planned: 'Planned', active: 'Active', completed: 'Completed' };
 
@@ -25,6 +26,8 @@ export default function SprintSection({ projectId, sprints, onRefresh, apiFetch,
   const [endDate, setEndDate] = useState('');
   const [status, setStatus] = useState('planned');
   const [submitting, setSubmitting] = useState(false);
+
+  useCloseOnEsc(showModal ? () => setShowModal(false) : null);
 
   const openCreate = () => {
     setEditing(null);

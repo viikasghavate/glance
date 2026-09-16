@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
+import useCloseOnEsc from '../components/useCloseOnEsc';
 import './SkillsPage.css';
 
 const LEVELS = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
@@ -303,6 +304,8 @@ function EndorseModal({ target, onClose, onSaved }) {
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  useCloseOnEsc(onClose);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

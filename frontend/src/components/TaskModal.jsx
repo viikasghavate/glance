@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import useCloseOnEsc from './useCloseOnEsc';
 import './TaskModal.css';
 
 function getDescendantIds(taskId, allTasks) {
@@ -57,6 +58,8 @@ export default function TaskModal({ task, users, projectId, tasks, sprints, mile
   const [milestoneOptions, setMilestoneOptions] = useState(milestones || []);
 
   const isEditing = !!task;
+
+  useCloseOnEsc(onClose);
 
   useEffect(() => {
     if (!isEditing) return;

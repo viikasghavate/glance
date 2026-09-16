@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useUI } from '../context/UIContext';
+import useCloseOnEsc from '../components/useCloseOnEsc';
 import './PortfolioPage.css';
 
 const COLORS = ['#6366f1', '#ef4444', '#22c55e', '#f59e0b', '#3b82f6', '#ec4899', '#8b5cf6', '#14b8a6'];
@@ -220,6 +221,8 @@ function PortfolioModal({ portfolio, onClose, onSave }) {
   const [color, setColor] = useState(portfolio?.color || '#6366f1');
   const [submitting, setSubmitting] = useState(false);
 
+  useCloseOnEsc(onClose);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name.trim()) return;
@@ -276,6 +279,8 @@ function ProgramModal({ program, portfolios, defaultPortfolioId, onClose, onSave
   const [color, setColor] = useState(program?.color || '#6366f1');
   const [portfolioId, setPortfolioId] = useState(program?.portfolio_id || defaultPortfolioId || '');
   const [submitting, setSubmitting] = useState(false);
+
+  useCloseOnEsc(onClose);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
