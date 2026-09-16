@@ -40,6 +40,58 @@ export const pgPool = new Pool({
 // with literals); route rewrites pass explicit $-SQL. These helpers just run
 // what they're given.
 
+// better-sqlite3-compatible adapter so route diffs are minimal:
+//   const row = db.prepare(sql).get(...p)      ->  await db.prepare(sql).get(...p)
+//   const rows = db.prepare(sql).all(...p)     ->  await db.prepare(sql).all(...p)
+//   const info = db.prepare(sql).run(...p)     ->  await db.prepare(sql).run(...p)
+//
+// SQL stays on the sqlite-native '?' dialect (both engines accept '?' after
+// translation) so routes keep ONE SQL string. The '?' -> '$n' translation is
+// done here at runtime, scanning outside single/double-quoted string literals,
+// so the same statement works on sqlite (natively) and pg (after this step).
+
+// Replace '?' parameter markers with $1..$n, skipping ? inside '...' / "..."
+// string literals so a literal question mark is not turned into a param.
+function translateQ(sql) {
+  let out = '';
+  let i = 0;
+  let n = 0;
+  let inStr = null; // null | "'" | '"'
+  while (i < sql.length) {
+    const ch = sql[i];
+    if (inStr) {
+      out += ch;
+      if (ch === inStr) {
+        // handle doubled-quote escape ('' / "" -> literal quote)
+        if (sql[i + 1] === inStr) { out += sql[i + 1]; i += 2; continue; }
+        inStr = null;
+      }
+      i++;
+      continue;
+    }
+    if (ch === "'" || ch === '"') { inStr = ch; out += ch; i++; continue; }
+    if (ch === '?') { n++; out += `$${n}`; i++; continue; }
+    out += ch;
+    i++;
+  }
+  return { sql: out, paramCount: n };
+}
+
+export const db = {
+  prepare(sql) {
+    const t = translateQ(sql);
+    const pgSql = t.sql;
+    return {
+      get: (...params) => dbGet(pgSql, params),
+      all: (...params) => dbAll(pgSql, params),
+      run: (...params) => dbRun(pgSql, params),
+    };
+  },
+};
+
+// export the translator for the parity/verification layer if needed
+const _translateQ = translateQ;
+
 function oneParam(param) {
   const p = Array.isArray(param) ? param : [param];
   return p;
