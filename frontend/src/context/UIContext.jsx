@@ -3,8 +3,11 @@ import { useAuth } from './AuthContext';
 
 const UIContext = createContext(null);
 
+const THEME_KEY = 'glance_theme';
+
 export function UIProvider({ children }) {
   const { apiFetch } = useAuth();
+  const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || 'neon');
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
   const [view, setView] = useState(() => {
@@ -54,6 +57,10 @@ export function UIProvider({ children }) {
   }, [apiFetch]);
 
   useEffect(() => { try { localStorage.setItem('glance_view', view); } catch {} }, [view]);
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try { localStorage.setItem(THEME_KEY, theme); } catch {}
+  }, [theme]);
   useEffect(() => { refreshProjects(); }, [refreshProjects]);
   useEffect(() => { refreshPortfolios(); }, [refreshPortfolios]);
   useEffect(() => { refreshUsers(); }, [refreshUsers]);
@@ -73,6 +80,10 @@ export function UIProvider({ children }) {
     setEditingProject(null);
   }, []);
 
+  const toggleTheme = useCallback(() => {
+    setTheme(prev => (prev === 'neon' ? 'light' : 'neon'));
+  }, []);
+
   return (
     <UIContext.Provider value={{
       showProjectModal, setShowProjectModal,
@@ -82,7 +93,8 @@ export function UIProvider({ children }) {
       projects, projectsLoading, refreshProjects,
       users, refreshUsers,
       portfolios, programs, refreshPortfolios,
-      openNewProjectModal, openEditProjectModal, closeProjectModal
+      openNewProjectModal, openEditProjectModal, closeProjectModal,
+      theme, toggleTheme
     }}>
       {children}
     </UIContext.Provider>
