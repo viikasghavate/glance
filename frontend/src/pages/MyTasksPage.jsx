@@ -44,6 +44,8 @@ export default function MyTasksPage() {
   const [priorityFilter, setPriorityFilter] = useState('');
   const [assigneeFilter, setAssigneeFilter] = useState('');
   const [labelFilter, setLabelFilter] = useState('');
+  const [filterSprint, setFilterSprint] = useState('');
+  const [filterMilestone, setFilterMilestone] = useState('');
 
   useEffect(() => {
     apiFetch('/tasks/mine')
@@ -76,6 +78,18 @@ export default function MyTasksPage() {
       }
     });
     return [...map.values()].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  }, [tasks]);
+
+  const distinctSprints = useMemo(() => {
+    const set = new Set();
+    tasks.forEach(t => { if (t.sprint_name) set.add(t.sprint_name); });
+    return [...set].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  }, [tasks]);
+
+  const distinctMilestones = useMemo(() => {
+    const set = new Set();
+    tasks.forEach(t => { if (t.milestone_name) set.add(t.milestone_name); });
+    return [...set].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
   }, [tasks]);
 
   const distinctLabels = useMemo(() => {
@@ -134,6 +148,14 @@ export default function MyTasksPage() {
       });
     }
 
+    if (filterSprint) {
+      result = result.filter(t => t.sprint_name === filterSprint);
+    }
+
+    if (filterMilestone) {
+      result = result.filter(t => t.milestone_name === filterMilestone);
+    }
+
     if (sortBy) {
       const sorted = [...result].sort((a, b) => {
         if (sortBy === 'priority') {
@@ -169,7 +191,7 @@ export default function MyTasksPage() {
     }
 
     return result;
-  }, [tasks, filter, search, sortBy, sortDir, dueFilter, priorityFilter, assigneeFilter, labelFilter, today]);
+  }, [tasks, filter, search, sortBy, sortDir, dueFilter, priorityFilter, assigneeFilter, labelFilter, filterSprint, filterMilestone, today]);
 
   if (loading) return <div className="loading"><div className="spinner" /></div>;
   if (error) return <div className="error-msg">{error}</div>;
@@ -226,6 +248,18 @@ export default function MyTasksPage() {
           <option value="">All Labels</option>
           {distinctLabels.map(l => (
             <option key={l} value={l}>{l}</option>
+          ))}
+        </select>
+        <select value={filterSprint} onChange={e => setFilterSprint(e.target.value)}>
+          <option value="">All Sprints</option>
+          {distinctSprints.map(s => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+        <select value={filterMilestone} onChange={e => setFilterMilestone(e.target.value)}>
+          <option value="">All Milestones</option>
+          {distinctMilestones.map(m => (
+            <option key={m} value={m}>{m}</option>
           ))}
         </select>
       </div>
