@@ -152,6 +152,7 @@ export default function Layout() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef(null);
+  const [myTasksOpenCount, setMyTasksOpenCount] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -160,6 +161,18 @@ export default function Layout() {
       .catch(() => {});
     apiFetch('/notifications')
       .then(list => { if (active) setNotifications(Array.isArray(list) ? list.slice(0, 20) : []); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [apiFetch]);
+
+  useEffect(() => {
+    let active = true;
+    apiFetch('/tasks/mine')
+      .then(list => {
+        if (!active) return;
+        const count = Array.isArray(list) ? list.filter(t => t.status !== 'done').length : 0;
+        setMyTasksOpenCount(count);
+      })
       .catch(() => {});
     return () => { active = false; };
   }, [apiFetch]);
@@ -249,6 +262,9 @@ export default function Layout() {
       <>
         <span className="nav-module-dot" />
         <span className="project-nav-name">{mod.label}</span>
+        {mod.to === '/mytasks' && myTasksOpenCount > 0 && (
+          <span className="notif-badge" style={{ position: 'static', display: 'inline-flex', marginLeft: 6, top: 'auto', right: 'auto', alignItems: 'center' }}>{myTasksOpenCount > 99 ? '99+' : myTasksOpenCount}</span>
+        )}
       </>
     );
     const className = `project-nav-item nav-module ${active ? 'active' : ''}`;
