@@ -6,3 +6,4 @@ dist/
 .env
 .coolify-token
 .pg/
+backups/
