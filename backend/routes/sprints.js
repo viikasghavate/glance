@@ -14,7 +14,7 @@ function isValidDate(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value));
 }
 
-function getSprint(id) {
+async function getSprint(id) {
   return db.prepare(`
     SELECT s.*,
       (SELECT COUNT(*) FROM tasks t WHERE t.sprint_id = s.id AND t.deleted_at IS NULL) as task_count,
@@ -24,12 +24,12 @@ function getSprint(id) {
   `).get(id);
 }
 
-router.get('/projects/:projectId/sprints', (req, res) => {
+router.get('/projects/:projectId/sprints', async (req, res) => {
   const { projectId } = req.params;
-  const project = db.prepare('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL').get(projectId);
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL').get(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
-  const sprints = db.prepare(`
+  const sprints = await db.prepare(`
     SELECT s.*,
       (SELECT COUNT(*) FROM tasks t WHERE t.sprint_id = s.id AND t.deleted_at IS NULL) as task_count,
       (SELECT COUNT(*) FROM tasks t WHERE t.sprint_id = s.id AND t.deleted_at IS NULL AND t.status = 'done') as done_count
@@ -40,9 +40,9 @@ router.get('/projects/:projectId/sprints', (req, res) => {
   res.json(sprints);
 });
 
-router.post('/projects/:projectId/sprints', requireRole('admin', 'member'), (req, res) => {
+router.post('/projects/:projectId/sprints', requireRole('admin', 'member'), async (req, res) => {
   const { projectId } = req.params;
-  const project = db.prepare('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL').get(projectId);
+  const project = await db.prepare('SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL').get(projectId);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
   const { name, goal, start_date, end_date } = req.body;
@@ -50,18 +50,18 @@ router.post('/projects/:projectId/sprints', requireRole('admin', 'member'), (req
   if (!isValidDate(start_date)) return res.status(400).json({ error: 'Invalid start_date format (expected YYYY-MM-DD)' });
   if (!isValidDate(end_date)) return res.status(400).json({ error: 'Invalid end_date format (expected YYYY-MM-DD)' });
 
-  const result = db.prepare(
+  const result = await db.prepare(
     'INSERT INTO sprints (project_id, name, goal, start_date, end_date) VALUES (?, ?, ?, ?, ?)'
   ).run(projectId, name, goal || '', start_date || null, end_date || null);
 
-  const sprint = getSprint(result.lastInsertRowid);
+  const sprint = await getSprint(result.lastInsertRowid);
   logActivity(req.user.id, 'sprint.created', 'sprint', sprint.id, sprint.name);
   res.status(201).json(sprint);
 });
 
-router.patch('/sprints/:id', requireRole('admin', 'member'), (req, res) => {
+router.patch('/sprints/:id', requireRole('admin', 'member'), async (req, res) => {
   const { id } = req.params;
-  const sprint = db.prepare('SELECT * FROM sprints WHERE id = ?').get(id);
+  const sprint = await db.prepare('SELECT * FROM sprints WHERE id = ?').get(id);
   if (!sprint) return res.status(404).json({ error: 'Sprint not found' });
 
   if (req.body.status !== undefined && !VALID_STATUS.includes(req.body.status)) return res.status(400).json({ error: 'Invalid status' });
@@ -79,28 +79,28 @@ router.patch('/sprints/:id', requireRole('admin', 'member'), (req, res) => {
     }
   }
 
-  if (updates.length === 0) return res.json(getSprint(id));
+  if (updates.length === 0) return res.json(await getSprint(id));
 
   updates.push("updated_at = datetime('now')");
   values.push(id);
 
-  db.prepare(`UPDATE sprints SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+  await db.prepare(`UPDATE sprints SET ${updates.join(', ')} WHERE id = ?`).run(...values);
 
-  const updated = getSprint(id);
+  const updated = await getSprint(id);
   logActivity(req.user.id, 'sprint.updated', 'sprint', updated.id, updated.name);
   res.json(updated);
 });
 
-router.delete('/sprints/:id', requireRole('admin', 'member'), (req, res) => {
+router.delete('/sprints/:id', requireRole('admin', 'member'), async (req, res) => {
   const { id } = req.params;
-  const sprint = db.prepare('SELECT * FROM sprints WHERE id = ?').get(id);
+  const sprint = await db.prepare('SELECT * FROM sprints WHERE id = ?').get(id);
   if (!sprint) return res.status(404).json({ error: 'Sprint not found' });
 
-  const txn = db.transaction(() => {
-    db.prepare('UPDATE tasks SET sprint_id = NULL, updated_at = datetime(\'now\') WHERE sprint_id = ?').run(id);
-    db.prepare('DELETE FROM sprints WHERE id = ?').run(id);
+  const txn = db.transaction(async () => {
+    await db.prepare('UPDATE tasks SET sprint_id = NULL, updated_at = datetime(\'now\') WHERE sprint_id = ?').run(id);
+    await db.prepare('DELETE FROM sprints WHERE id = ?').run(id);
   });
-  txn();
+  await txn();
 
   logActivity(req.user.id, 'sprint.deleted', 'sprint', id, sprint.name);
   res.json({ success: true });

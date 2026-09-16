@@ -51,9 +51,32 @@ export const pgPool = new Pool({
 // done here at runtime, scanning outside single/double-quoted string literals,
 // so the same statement works on sqlite (natively) and pg (after this step).
 
+// Translate sqlite-only date helpers to pg equivalents (mirrors parity.js
+// translateToPg), applied BEFORE the '?' pass so their string args aren't
+// disturbed by placeholder rewriting.
+function parseModifier(mod) {
+  const sign = mod.trim().startsWith('-') ? -1 : 1;
+  const m = mod.match(/(\d+)\s*days/);
+  if (!m) throw new Error(`Unhandled date modifier: ${mod}`);
+  const days = parseInt(m[1], 10);
+  if (days === 0) return '';
+  return sign < 0 ? ` - interval '${days} days'` : ` + interval '${days} days'`;
+}
+
 // Replace '?' parameter markers with $1..$n, skipping ? inside '...' / "..."
 // string literals so a literal question mark is not turned into a param.
 function translateQ(sql) {
+  sql = sql
+    .replace(/datetime\('now'\)/g, "to_char(now(),'YYYY-MM-DD HH24:MI:SS')")
+    .replace(/datetime\('now',\s*'([^']+)'\)/g, (m, mod) => {
+      const v = parseModifier(mod);
+      return `to_char(now()${v},'YYYY-MM-DD HH24:MI:SS')`;
+    })
+    .replace(/date\('now'\)/g, "to_char(CURRENT_DATE,'YYYY-MM-DD')")
+    .replace(/date\('now',\s*'([^']+)'\)/g, (m, mod) => {
+      const v = parseModifier(mod);
+      return `to_char(CURRENT_DATE${v},'YYYY-MM-DD')`;
+    });
   let out = '';
   let i = 0;
   let n = 0;

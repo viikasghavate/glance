@@ -30,6 +30,28 @@ if (engine === 'pg') {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
 
+  // Wrap db.transaction to accept ASYNC fns (routes are async-await now; the pg
+  // adapter's transaction is async). better-sqlite3's native transaction throws
+  // on an async fn, so for async fns run manual BEGIN/COMMIT/ROLLBACK on the same
+  // handle; for sync fns use the native fast path (migrations rely on it).
+  const nativeTransaction = db.transaction.bind(db);
+  db.transaction = (fn) => {
+    if (fn.constructor.name === 'AsyncFunction') {
+      return async () => {
+        db.exec('BEGIN');
+        try {
+          const out = await fn();
+          db.exec('COMMIT');
+          return out;
+        } catch (e) {
+          db.exec('ROLLBACK');
+          throw e;
+        }
+      };
+    }
+    return nativeTransaction(fn);
+  };
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

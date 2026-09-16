@@ -7,31 +7,31 @@ const router = Router();
 
 router.use(requireAuth);
 
-function getPortfolio(id) {
+async function getPortfolio(id) {
   return db.prepare('SELECT * FROM portfolios WHERE id = ? AND deleted_at IS NULL').get(id);
 }
 
-router.get('/', (req, res) => {
-  const portfolios = db.prepare(`
+router.get('/', async (req, res) => {
+  const portfolios = await db.prepare(`
     SELECT * FROM portfolios
     WHERE deleted_at IS NULL AND archived = 0
     ORDER BY name ASC
   `).all();
 
-  const programs = db.prepare(`
+  const programs = await db.prepare(`
     SELECT * FROM programs
     WHERE deleted_at IS NULL AND archived = 0
     ORDER BY name ASC
   `).all();
 
-  const directProjects = db.prepare(`
+  const directProjects = await db.prepare(`
     SELECT id, name, color, portfolio_id, program_id
     FROM projects
     WHERE deleted_at IS NULL AND archived = 0 AND portfolio_id IS NOT NULL
     ORDER BY name ASC
   `).all();
 
-  const programProjects = db.prepare(`
+  const programProjects = await db.prepare(`
     SELECT id, name, color, portfolio_id, program_id
     FROM projects
     WHERE deleted_at IS NULL AND archived = 0 AND program_id IS NOT NULL
@@ -61,22 +61,22 @@ router.get('/', (req, res) => {
   res.json(result);
 });
 
-router.post('/', requireRole('admin', 'member'), (req, res) => {
+router.post('/', requireRole('admin', 'member'), async (req, res) => {
   const { name, description, color, owner_id } = req.body;
   if (!name) return res.status(400).json({ error: 'name is required' });
 
-  const result = db.prepare(
+  const result = await db.prepare(
     'INSERT INTO portfolios (name, description, color, owner_id) VALUES (?, ?, ?, ?)'
   ).run(name, description || '', color || '#6366f1', owner_id || null);
 
-  const portfolio = getPortfolio(result.lastInsertRowid);
+  const portfolio = await getPortfolio(result.lastInsertRowid);
   logActivity(req.user.id, 'portfolio.created', 'portfolio', portfolio.id, portfolio.name);
   res.status(201).json(portfolio);
 });
 
-router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
+router.patch('/:id', requireRole('admin', 'member'), async (req, res) => {
   const { id } = req.params;
-  const portfolio = getPortfolio(id);
+  const portfolio = await getPortfolio(id);
   if (!portfolio) return res.status(404).json({ error: 'Portfolio not found' });
 
   const fields = ['name', 'description', 'color', 'archived', 'owner_id'];
@@ -90,29 +90,29 @@ router.patch('/:id', requireRole('admin', 'member'), (req, res) => {
     }
   }
 
-  if (updates.length === 0) return res.json(portfolio);
+  if (updates.length === 0) return res.json(await getPortfolio(id));
 
   updates.push("updated_at = datetime('now')");
   values.push(id);
 
-  db.prepare(`UPDATE portfolios SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+  await db.prepare(`UPDATE portfolios SET ${updates.join(', ')} WHERE id = ?`).run(...values);
 
-  const updated = getPortfolio(id);
+  const updated = await getPortfolio(id);
   logActivity(req.user.id, 'portfolio.updated', 'portfolio', updated.id, updated.name);
   res.json(updated);
 });
 
-router.delete('/:id', requireRole('admin', 'member'), (req, res) => {
+router.delete('/:id', requireRole('admin', 'member'), async (req, res) => {
   const { id } = req.params;
-  const portfolio = getPortfolio(id);
+  const portfolio = await getPortfolio(id);
   if (!portfolio) return res.status(404).json({ error: 'Portfolio not found' });
 
-  const txn = db.transaction(() => {
-    db.prepare("UPDATE portfolios SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(id);
-    db.prepare("UPDATE programs SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE portfolio_id = ? AND deleted_at IS NULL").run(id);
-    db.prepare("UPDATE projects SET portfolio_id = NULL, updated_at = datetime('now') WHERE portfolio_id = ? AND deleted_at IS NULL").run(id);
+  const txn = db.transaction(async () => {
+    await db.prepare("UPDATE portfolios SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(id);
+    await db.prepare("UPDATE programs SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE portfolio_id = ? AND deleted_at IS NULL").run(id);
+    await db.prepare("UPDATE projects SET portfolio_id = NULL, updated_at = datetime('now') WHERE portfolio_id = ? AND deleted_at IS NULL").run(id);
   });
-  txn();
+  await txn();
 
   logActivity(req.user.id, 'portfolio.deleted', 'portfolio', id, portfolio.name);
   res.json({ success: true });
