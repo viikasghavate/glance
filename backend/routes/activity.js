@@ -6,7 +6,7 @@ const router = Router();
 
 router.use(requireAuth);
 
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const { project_id, entity_type, q, limit } = req.query;
   const conditions = [];
   const values = [];
@@ -29,7 +29,7 @@ router.get('/', (req, res) => {
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
   const limitVal = Math.min(parseInt(limit, 10) || 50, 200);
 
-  const rows = db.prepare(`
+  const rows = await db.prepare(`
     SELECT a.*, u.name as user_name, t.project_id as project_id
     FROM activity_log a
     LEFT JOIN users u ON a.user_id = u.id
@@ -47,7 +47,7 @@ function csvEscape(value) {
   return '"' + String(value).replace(/"/g, '""') + '"';
 }
 
-router.get('/export', (req, res) => {
+router.get('/export', async (req, res) => {
   const { project_id, entity_type, q } = req.query;
   const conditions = [];
   const values = [];
@@ -69,7 +69,7 @@ router.get('/export', (req, res) => {
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-  const rows = db.prepare(`
+  const rows = await db.prepare(`
     SELECT a.*, u.name as user_name, t.project_id as project_id
     FROM activity_log a
     LEFT JOIN users u ON a.user_id = u.id

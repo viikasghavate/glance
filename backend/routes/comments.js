@@ -8,9 +8,9 @@ const router = Router();
 
 router.use(requireAuth);
 
-router.get('/task/:taskId', (req, res) => {
+router.get('/task/:taskId', async (req, res) => {
   const { taskId } = req.params;
-  const comments = db.prepare(`
+  const comments = await db.prepare(`
     SELECT c.*, u.name as user_name, u.email as user_email
     FROM comments c
     JOIN users u ON c.user_id = u.id
@@ -21,19 +21,19 @@ router.get('/task/:taskId', (req, res) => {
   res.json(comments);
 });
 
-router.post('/task/:taskId', requireRole('admin', 'member'), (req, res) => {
+router.post('/task/:taskId', requireRole('admin', 'member'), async (req, res) => {
   const { taskId } = req.params;
   const { body } = req.body;
   if (!body) return res.status(400).json({ error: 'body is required' });
 
-  const task = db.prepare('SELECT id, title, assignee_id, reporter_id, project_id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(taskId);
+  const task = await db.prepare('SELECT id, title, assignee_id, reporter_id, project_id FROM tasks WHERE id = ? AND deleted_at IS NULL').get(taskId);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
-  const result = db.prepare(
+  const result = await db.prepare(
     'INSERT INTO comments (task_id, user_id, body) VALUES (?, ?, ?)'
   ).run(taskId, req.user.id, body);
 
-  const comment = db.prepare(`
+  const comment = await db.prepare(`
     SELECT c.*, u.name as user_name, u.email as user_email
     FROM comments c
     JOIN users u ON c.user_id = u.id
@@ -47,9 +47,9 @@ router.post('/task/:taskId', requireRole('admin', 'member'), (req, res) => {
   res.status(201).json(comment);
 });
 
-router.delete('/:id', requireRole('admin', 'member'), (req, res) => {
+router.delete('/:id', requireRole('admin', 'member'), async (req, res) => {
   const { id } = req.params;
-  const comment = db.prepare(`
+  const comment = await db.prepare(`
     SELECT c.*, t.title as task_title
     FROM comments c
     LEFT JOIN tasks t ON t.id = c.task_id
@@ -57,7 +57,7 @@ router.delete('/:id', requireRole('admin', 'member'), (req, res) => {
   `).get(id);
   if (!comment) return res.status(404).json({ error: 'Comment not found' });
 
-  db.prepare('DELETE FROM comments WHERE id = ?').run(id);
+  await db.prepare('DELETE FROM comments WHERE id = ?').run(id);
 
   logActivity(req.user.id, 'comment.deleted', 'comment', comment.id, comment.task_title, { task_id: comment.task_id });
 

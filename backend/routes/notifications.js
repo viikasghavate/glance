@@ -6,8 +6,8 @@ const router = Router();
 
 router.use(requireAuth);
 
-router.get('/', (req, res) => {
-  const notifications = db.prepare(`
+router.get('/', async (req, res) => {
+  const notifications = await db.prepare(`
     SELECT * FROM notifications
     WHERE user_id = ?
     ORDER BY created_at DESC, id DESC
@@ -16,22 +16,22 @@ router.get('/', (req, res) => {
   res.json(notifications);
 });
 
-router.get('/unread-count', (req, res) => {
-  const row = db.prepare('SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND read = 0').get(req.user.id);
+router.get('/unread-count', async (req, res) => {
+  const row = await db.prepare('SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND read = 0').get(req.user.id);
   res.json({ count: row.count });
 });
 
-router.post('/:id/read', (req, res) => {
+router.post('/:id/read', async (req, res) => {
   const { id } = req.params;
-  const notification = db.prepare('SELECT * FROM notifications WHERE id = ? AND user_id = ?').get(id, req.user.id);
+  const notification = await db.prepare('SELECT * FROM notifications WHERE id = ? AND user_id = ?').get(id, req.user.id);
   if (!notification) return res.status(404).json({ error: 'Notification not found' });
 
-  db.prepare('UPDATE notifications SET read = 1 WHERE id = ?').run(id);
-  res.json(db.prepare('SELECT * FROM notifications WHERE id = ?').get(id));
+  await db.prepare('UPDATE notifications SET read = 1 WHERE id = ?').run(id);
+  res.json(await db.prepare('SELECT * FROM notifications WHERE id = ?').get(id));
 });
 
-router.post('/read-all', (req, res) => {
-  db.prepare('UPDATE notifications SET read = 1 WHERE user_id = ? AND read = 0').run(req.user.id);
+router.post('/read-all', async (req, res) => {
+  await db.prepare('UPDATE notifications SET read = 1 WHERE user_id = ? AND read = 0').run(req.user.id);
   res.json({ success: true });
 });
 

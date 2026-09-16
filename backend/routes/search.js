@@ -6,7 +6,7 @@ const router = Router();
 
 router.use(requireAuth);
 
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const q = (req.query.q || '').trim();
   if (q.length < 2) {
     return res.json({ projects: [], tasks: [], comments: [] });
@@ -14,7 +14,7 @@ router.get('/', (req, res) => {
 
   const like = `%${q}%`;
 
-  const projects = db.prepare(`
+  const projects = await db.prepare(`
     SELECT id, name, color
     FROM projects
     WHERE deleted_at IS NULL AND (name LIKE ? OR description LIKE ?)
@@ -22,7 +22,7 @@ router.get('/', (req, res) => {
     LIMIT 10
   `).all(like, like);
 
-  const tasks = db.prepare(`
+  const tasks = await db.prepare(`
     SELECT t.id, t.title, t.project_id, p.name as project_name, t.status
     FROM tasks t
     LEFT JOIN projects p ON p.id = t.project_id
@@ -31,7 +31,7 @@ router.get('/', (req, res) => {
     LIMIT 10
   `).all(like, like, like);
 
-  const comments = db.prepare(`
+  const comments = await db.prepare(`
     SELECT c.id, c.body, c.task_id, t.project_id, t.title as task_title, u.name as user_name
     FROM comments c
     JOIN tasks t ON t.id = c.task_id
