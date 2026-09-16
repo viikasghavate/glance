@@ -26,6 +26,7 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
   const [filterSprint, setFilterSprint] = useState('');
   const [filterMilestone, setFilterMilestone] = useState('');
   const [filterDue, setFilterDue] = useState('');
+  const [search, setSearch] = useState('');
   const [collapsed, setCollapsed] = useState({});
   const [dragOverId, setDragOverId] = useState(null);
   const [sortBy, setSortBy] = useState('');
@@ -116,7 +117,25 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
     return applySort(roots);
   }, [tasks, sortBy, sortDir]);
 
+  const searchMatches = (t) => {
+    if (!search) return true;
+    const q = search.trim().toLowerCase();
+    const labelNames = t.labelList && t.labelList.length
+      ? t.labelList.map(l => (l.name || '').toLowerCase())
+      : (t.labels ? t.labels.split(',').map(l => l.trim().toLowerCase()) : []);
+    const haystack = [
+      t.title,
+      t.description,
+      t.project_name,
+      t.sprint_name,
+      t.milestone_name,
+      ...labelNames
+    ].filter(v => v != null).join(' ').toLowerCase();
+    return haystack.includes(q);
+  };
+
   const matchesFilter = (t) => {
+    if (!searchMatches(t)) return false;
     if (filterStatus && t.status !== filterStatus) return false;
     if (filterPriority && t.priority !== filterPriority) return false;
     if (filterAssignee && String(t.assignee_id) !== filterAssignee) return false;
@@ -147,7 +166,7 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
     return result;
   };
 
-  const filtered = useMemo(() => flattenTree(tree), [tree, filterStatus, filterPriority, filterAssignee, filterLabel, filterSprint, filterMilestone, filterDue, collapsed]);
+  const filtered = useMemo(() => flattenTree(tree), [tree, filterStatus, filterPriority, filterAssignee, filterLabel, filterSprint, filterMilestone, filterDue, search, collapsed]);
 
   const distinctLabels = useMemo(() => {
     const set = new Set();
@@ -209,6 +228,13 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
   return (
     <div>
       <div className="task-filters">
+        <input
+          type="text"
+          className="timeline-search"
+          placeholder="Search tasks…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
           <option value="">All Statuses</option>
           <option value="todo">To Do</option>

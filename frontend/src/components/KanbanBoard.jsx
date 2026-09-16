@@ -33,6 +33,7 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
   const [filterSprint, setFilterSprint] = useState('');
   const [filterMilestone, setFilterMilestone] = useState('');
   const [filterDue, setFilterDue] = useState('');
+  const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('');
   const [sortDir, setSortDir] = useState('asc');
 
@@ -131,6 +132,22 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
     const flat = flattenTree(tree);
     return flat
       .filter(t => t.status === status)
+      .filter(t => {
+        if (!search) return true;
+        const q = search.trim().toLowerCase();
+        const labelNames = t.labelList && t.labelList.length
+          ? t.labelList.map(l => (l.name || '').toLowerCase())
+          : (t.labels ? t.labels.split(',').map(l => l.trim().toLowerCase()) : []);
+        const haystack = [
+          t.title,
+          t.description,
+          t.project_name,
+          t.sprint_name,
+          t.milestone_name,
+          ...labelNames
+        ].filter(v => v != null).join(' ').toLowerCase();
+        return haystack.includes(q);
+      })
       .filter(t => !filterLabel || (t.labels ? t.labels.split(',').map(l => l.trim().toLowerCase()) : []).includes(filterLabel.toLowerCase()))
       .filter(t => !filterPriority || t.priority === filterPriority)
       .filter(t => !filterAssignee || String(t.assignee_id) === filterAssignee)
@@ -214,6 +231,13 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
   return (
     <div className="kanban">
       <div className="kanban-filters">
+        <input
+          type="text"
+          className="timeline-search"
+          placeholder="Search tasks…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
         <select value={filterLabel} onChange={e => setFilterLabel(e.target.value)}>
           <option value="">All Labels</option>
           {distinctLabels.map(l => (
@@ -370,7 +394,7 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
                 </div>
               ))}
               {colTasks.length === 0 && (
-                <div className="kanban-empty">No tasks</div>
+                <div className="kanban-empty">{search ? 'No tasks match the filters.' : 'No tasks'}</div>
               )}
             </div>
           </div>
