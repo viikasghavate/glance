@@ -1,8 +1,8 @@
 import db from '../db.js';
 
-export function logActivity(userId, action, entityType, entityId, entityName, details) {
+export async function logActivity(userId, action, entityType, entityId, entityName, details) {
   try {
-    db.prepare(
+    await db.prepare(
       `INSERT INTO activity_log (user_id, action, entity_type, entity_id, entity_name, details)
        VALUES (?, ?, ?, ?, ?, ?)`
     ).run(
