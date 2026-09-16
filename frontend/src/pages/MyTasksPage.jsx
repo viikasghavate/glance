@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { isOverdue } from '../components/overdue';
+import { isOverdue, dueInfo } from '../components/overdue';
 import './MyTasksPage.css';
 
 const statusMeta = {
@@ -354,6 +354,12 @@ export default function MyTasksPage() {
                       {task.due_date}
                     </span>
                   )}
+                  {task.due_date && (() => {
+                    const info = dueInfo(task.due_date, task.status, today);
+                    if (!info) return null;
+                    const cls = info.overdue ? 'due-chip due-chip-overdue' : (info.days === 0 ? 'due-chip due-chip-today' : 'due-chip');
+                    return <span className={cls}>{info.label}</span>;
+                  })()}
                 </div>
               </Link>
             ))}
