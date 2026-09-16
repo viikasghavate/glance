@@ -24,7 +24,7 @@ router.get('/', (req, res) => {
   const limitVal = Math.min(parseInt(limit, 10) || 50, 200);
 
   const rows = db.prepare(`
-    SELECT a.*, u.name as user_name
+    SELECT a.*, u.name as user_name, t.project_id as project_id
     FROM activity_log a
     LEFT JOIN users u ON a.user_id = u.id
     LEFT JOIN tasks t ON a.entity_type = 'task' AND a.entity_id = t.id AND t.deleted_at IS NULL

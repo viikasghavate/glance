@@ -335,20 +335,34 @@ export default function DashboardPage() {
         </div>
 
         <div className="panel">
-          <h2 className="panel-title">Recent Activity</h2>
+          <div className="panel-header">
+            <h2 className="panel-title">Recent Activity</h2>
+            <Link to="/activity" className="panel-link">View all →</Link>
+          </div>
           <div className="task-list">
             {activity.length === 0 ? (
               <div className="empty">No recent activity</div>
             ) : (
-              activity.map(a => (
-                <div key={a.id} className="task-row activity-row">
-                  <div className="task-row-title">{formatActivity(a)}</div>
-                  <div className="task-row-meta">
-                    <span className="task-row-project">{a.entity_type}</span>
-                    <span className="task-row-due">{relativeTime(a.created_at)}</span>
+              activity.map(a => {
+                const row = (
+                  <>
+                    <div className="task-row-title">{formatActivity(a)}</div>
+                    <div className="task-row-meta">
+                      <span className="task-row-project">{a.entity_type}</span>
+                      <span className="task-row-due">{relativeTime(a.created_at)}</span>
+                    </div>
+                  </>
+                );
+                return a.entity_type === 'task' && a.project_id != null ? (
+                  <Link key={a.id} to={`/project/${a.project_id}?task=${a.entity_id}`} className="task-row activity-row">
+                    {row}
+                  </Link>
+                ) : (
+                  <div key={a.id} className="task-row activity-row">
+                    {row}
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

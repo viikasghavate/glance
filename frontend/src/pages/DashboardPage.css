@@ -98,6 +98,31 @@
   color: var(--danger);
 }
 
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.panel-header .panel-title {
+  margin-bottom: 0;
+}
+
+.panel-link {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+
+.panel-link:hover {
+  color: var(--cyan);
+}
+
 /* ── Donut ── */
 .donut-wrap {
   display: flex;
