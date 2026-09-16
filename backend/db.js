@@ -1,23 +1,34 @@
-import Database from 'better-sqlite3';
-import path from 'path';
 import fs from 'fs';
+import path from 'path';
+import Database from 'better-sqlite3';
 
 const dbPath = process.env.DB_PATH || '/data/glance.db';
-
 const dbDir = path.dirname(dbPath);
 if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
-
 export const uploadsDir = path.join(dbDir, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-const db = new Database(dbPath);
+// ── Engine selection ──
+// DB_ENGINE=pg -> routes run against Postgres via pg/client.js (await-based).
+// Default sqlite -> current behavior (sync better-sqlite3). All routes are
+// written async/await; `await` on sqlite's sync results is a no-op, so the
+// SAME converted routes run on either engine. SQL stays '?'-dialect; the pg
+// adapter transpiles ?->$n at runtime.
+const engine = process.env.DB_ENGINE || 'sqlite';
+let db;
+let usingPg = engine === 'pg';
 
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+if (engine === 'pg') {
+  const { db: pgdb } = await import('./pg/client.js');
+  db = pgdb;
+} else {
+  db = new Database(dbPath);
+  db.pragma('journal_mode = WAL');
+  db.pragma('foreign_keys = ON');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
@@ -655,5 +666,8 @@ function runMigrations() {
 }
 
 runMigrations();
+}
+// `db` is either the sqlite handle (schema/migrations applied above) or the pg
+// adapter (no sqlite schema to create). export a single default for all routes.
 
 export default db;
