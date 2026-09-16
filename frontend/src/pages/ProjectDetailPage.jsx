@@ -34,6 +34,7 @@ export default function ProjectDetailPage() {
   const [editingTask, setEditingTask] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -142,6 +143,39 @@ export default function ProjectDetailPage() {
     fetchData();
   };
 
+  const handleCopyLink = async () => {
+    const url = window.location.origin + '/project/' + project.id;
+    const fallbackCopy = () => {
+      const textarea = document.createElement('textarea');
+      textarea.value = url;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      try {
+        document.execCommand('copy');
+      } catch (err) {
+        console.error(err);
+      }
+      document.body.removeChild(textarea);
+    };
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        fallbackCopy();
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      console.error(err);
+      fallbackCopy();
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
+  };
+
   if (loading) return <div className="loading"><div className="spinner" /></div>;
   if (!project) return null;
 
@@ -171,6 +205,9 @@ export default function ProjectDetailPage() {
           </div>
         </div>
         <div className="view-actions">
+          <button className="btn-ghost btn-sm" onClick={handleCopyLink} title="Copy project link">
+            {copied ? 'Copied!' : 'Copy Link'}
+          </button>
           <button className="btn-ghost" onClick={handleExportCsv}>
             Export CSV
           </button>
