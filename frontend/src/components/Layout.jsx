@@ -125,6 +125,24 @@ const IconActivity = () => (
   </svg>
 );
 
+const NAV_STORAGE_KEY = 'glance_nav_apps';
+const DEFAULT_APPS = { Projects: true, Workspace: true, People: false, Admin: false, ProjectsTree: false };
+
+function loadExpandedApps() {
+  try {
+    const raw = localStorage.getItem(NAV_STORAGE_KEY);
+    if (!raw) return { ...DEFAULT_APPS };
+    const parsed = JSON.parse(raw);
+    const result = { ...DEFAULT_APPS };
+    for (const key of Object.keys(DEFAULT_APPS)) {
+      if (typeof parsed[key] === 'boolean') result[key] = parsed[key];
+    }
+    return result;
+  } catch {
+    return { ...DEFAULT_APPS };
+  }
+}
+
 function ProjectNavGroups({ projects, portfolios, programs, currentProjectId }) {
   const ungrouped = [];
 
@@ -198,6 +216,15 @@ export default function Layout() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [railCollapsed, setRailCollapsed] = useState(false);
   const [now, setNow] = useState(() => new Date());
+  const [expandedApps, setExpandedApps] = useState(loadExpandedApps);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(NAV_STORAGE_KEY, JSON.stringify(expandedApps));
+    } catch {
+      /* ignore quota / storage errors */
+    }
+  }, [expandedApps]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
@@ -264,6 +291,71 @@ export default function Layout() {
   const isHome = location.pathname === '/';
   const isProjectPage = location.pathname.startsWith('/project/');
   const currentProjectId = isProjectPage ? location.pathname.split('/')[2] : null;
+
+  const toggleApp = (app) => {
+    setExpandedApps(prev => ({ ...prev, [app]: !prev[app] }));
+  };
+
+  const isModuleActive = (to) => {
+    if (to === '/') return isHome;
+    return location.pathname.startsWith(to);
+  };
+
+  const navApps = [
+    {
+      name: 'Projects',
+      modules: [
+        { label: 'All Projects', to: '/projects' },
+        { label: 'My Tasks', to: '/mytasks' },
+        { label: 'Add Project', to: '/projects', action: openNewProjectModal },
+      ],
+    },
+    {
+      name: 'Workspace',
+      modules: [
+        { label: 'Dashboard', to: '/' },
+        { label: 'Activity', to: '/activity' },
+        { label: 'Portfolios', to: '/ports' },
+      ],
+    },
+    {
+      name: 'People',
+      modules: [
+        { label: 'Members', to: '/users' },
+        { label: 'Skills', to: '/skills' },
+      ],
+    },
+    {
+      name: 'Admin',
+      adminOnly: true,
+      modules: [
+        { label: 'Settings', to: '/settings' },
+      ],
+    },
+  ];
+
+  const renderModule = (mod) => {
+    const active = isModuleActive(mod.to);
+    const content = (
+      <>
+        <span className="nav-module-dot" />
+        <span className="project-nav-name">{mod.label}</span>
+      </>
+    );
+    const className = `project-nav-item nav-module ${active ? 'active' : ''}`;
+    if (mod.action) {
+      return (
+        <button key={mod.label} className={className} onClick={mod.action}>
+          {content}
+        </button>
+      );
+    }
+    return (
+      <Link key={mod.label} to={mod.to} className={className}>
+        {content}
+      </Link>
+    );
+  };
 
   const handleLogout = () => {
     logout();
@@ -450,25 +542,58 @@ export default function Layout() {
         </div>
 
         <div className="project-nav-section-label">
-          <span>Projects</span>
-          <span className="project-nav-section-count">{projects.length}</span>
+          <span>Apps</span>
         </div>
 
         <div className="project-nav-list">
-          {projectsLoading ? (
-            <div className="loading" style={{ padding: '1rem' }}><div className="spinner" /></div>
-          ) : filteredProjects.length === 0 ? (
-            <div className="empty" style={{ padding: '1rem', fontSize: '0.75rem' }}>
-              {searchQuery ? 'No matching projects' : 'No projects yet'}
-            </div>
-          ) : (
-            <ProjectNavGroups
-              projects={filteredProjects}
-              portfolios={portfolios}
-              programs={programs}
-              currentProjectId={currentProjectId}
-            />
-          )}
+          {navApps.map(app => {
+            if (app.adminOnly && !hasRole('admin')) return null;
+            const open = !!expandedApps[app.name];
+            return (
+              <div key={app.name} className="nav-app">
+                <button className="nav-app-header" onClick={() => toggleApp(app.name)}>
+                  <span className={`nav-app-caret ${open ? 'open' : ''}`}>
+                    <IconChevronRight />
+                  </span>
+                  <span className="nav-app-title">{app.name}</span>
+                  <span className="project-nav-section-count">{app.modules.length}</span>
+                </button>
+                {open && (
+                  <div className="nav-app-body">
+                    {app.modules.map(renderModule)}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          <div className="nav-app">
+            <button className="nav-app-header" onClick={() => toggleApp('ProjectsTree')}>
+              <span className={`nav-app-caret ${!!expandedApps.ProjectsTree ? 'open' : ''}`}>
+                <IconChevronRight />
+              </span>
+              <span className="nav-app-title">Projects</span>
+              <span className="project-nav-section-count">{projects.length}</span>
+            </button>
+            {expandedApps.ProjectsTree && (
+              <div className="nav-app-body">
+                {projectsLoading ? (
+                  <div className="loading" style={{ padding: '1rem' }}><div className="spinner" /></div>
+                ) : filteredProjects.length === 0 ? (
+                  <div className="empty" style={{ padding: '1rem', fontSize: '0.75rem' }}>
+                    {searchQuery ? 'No matching projects' : 'No projects yet'}
+                  </div>
+                ) : (
+                  <ProjectNavGroups
+                    projects={filteredProjects}
+                    portfolios={portfolios}
+                    programs={programs}
+                    currentProjectId={currentProjectId}
+                  />
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {!hasRole('viewer') && (
