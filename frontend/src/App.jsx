@@ -10,6 +10,7 @@ import UserManagementPage from './pages/UserManagementPage';
 import SettingsPage from './pages/SettingsPage';
 import SkillsPage from './pages/SkillsPage';
 import ActivityLogPage from './pages/ActivityLogPage';
+import TimeLogPage from './pages/TimeLogPage';
 import MyTasksPage from './pages/MyTasksPage';
 import Layout from './components/Layout';
 
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="users" element={<UserManagementPage />} />
         <Route path="skills" element={<SkillsPage />} />
         <Route path="activity" element={<ActivityLogPage />} />
+        <Route path="time" element={<TimeLogPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

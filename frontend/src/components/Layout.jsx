@@ -247,6 +247,7 @@ export default function Layout() {
       modules: [
         { label: 'Dashboard', to: '/' },
         { label: 'Activity', to: '/activity' },
+        { label: 'Time Log', to: '/time' },
         { label: 'Programs', to: '/ports' },
         { label: 'Portfolios', to: '/ports' },
       ],
