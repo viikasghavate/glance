@@ -152,6 +152,7 @@ export default function Layout() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef(null);
+  const notifOpenRef = useRef(notifOpen);
   const [myTasksOpenCount, setMyTasksOpenCount] = useState(0);
 
   useEffect(() => {
@@ -164,6 +165,24 @@ export default function Layout() {
       .catch(() => {});
     return () => { active = false; };
   }, [apiFetch]);
+
+  useEffect(() => {
+    let active = true;
+    const timer = setInterval(() => {
+      if (notifOpenRef.current) return;
+      apiFetch('/notifications/unread-count')
+        .then(d => { if (active) setUnreadCount(d.count || 0); })
+        .catch(() => {});
+    }, 30000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [apiFetch]);
+
+  useEffect(() => {
+    notifOpenRef.current = notifOpen;
+  }, [notifOpen]);
 
   useEffect(() => {
     let active = true;
