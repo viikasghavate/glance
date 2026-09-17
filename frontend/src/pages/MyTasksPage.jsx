@@ -46,6 +46,7 @@ export default function MyTasksPage() {
   const [labelFilter, setLabelFilter] = useState('');
   const [filterSprint, setFilterSprint] = useState('');
   const [filterMilestone, setFilterMilestone] = useState('');
+  const [projectFilter, setProjectFilter] = useState('');
 
   const anyFilter =
     search !== '' ||
@@ -56,7 +57,8 @@ export default function MyTasksPage() {
     assigneeFilter !== '' ||
     labelFilter !== '' ||
     filterSprint !== '' ||
-    filterMilestone !== '';
+    filterMilestone !== '' ||
+    projectFilter !== '';
 
   const clearFilters = () => {
     setSearch('');
@@ -68,6 +70,7 @@ export default function MyTasksPage() {
     setLabelFilter('');
     setFilterSprint('');
     setFilterMilestone('');
+    setProjectFilter('');
   };
 
   useEffect(() => {
@@ -113,6 +116,19 @@ export default function MyTasksPage() {
     const set = new Set();
     tasks.forEach(t => { if (t.milestone_name) set.add(t.milestone_name); });
     return [...set].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  }, [tasks]);
+
+  const distinctProjects = useMemo(() => {
+    const map = new Map();
+    tasks.forEach(t => {
+      if (t.project_id == null) return;
+      const name = (t.project_name || '').trim();
+      if (!name) return;
+      if (!map.has(t.project_id)) {
+        map.set(t.project_id, { project_id: t.project_id, project_name: name });
+      }
+    });
+    return [...map.values()].sort((a, b) => a.project_name.toLowerCase().localeCompare(b.project_name.toLowerCase()));
   }, [tasks]);
 
   const distinctLabels = useMemo(() => {
@@ -204,6 +220,10 @@ export default function MyTasksPage() {
       result = result.filter(t => t.milestone_name === filterMilestone);
     }
 
+    if (projectFilter) {
+      result = result.filter(t => t.project_id != null && String(t.project_id) === projectFilter);
+    }
+
     if (sortBy) {
       const sorted = [...result].sort((a, b) => {
         if (sortBy === 'priority') {
@@ -239,7 +259,7 @@ export default function MyTasksPage() {
     }
 
     return result;
-  }, [tasks, filter, search, sortBy, sortDir, dueFilter, priorityFilter, assigneeFilter, labelFilter, filterSprint, filterMilestone, today]);
+  }, [tasks, filter, search, sortBy, sortDir, dueFilter, priorityFilter, assigneeFilter, labelFilter, filterSprint, filterMilestone, projectFilter, today]);
 
   if (loading) return <div className="loading"><div className="spinner" /></div>;
   if (error) return <div className="error-msg">{error}</div>;
@@ -311,6 +331,12 @@ export default function MyTasksPage() {
           <option value="">All Milestones</option>
           {distinctMilestones.map(m => (
             <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
+        <select value={projectFilter} onChange={e => setProjectFilter(e.target.value)}>
+          <option value="">All Projects</option>
+          {distinctProjects.map(p => (
+            <option key={p.project_id} value={String(p.project_id)}>{p.project_name}</option>
           ))}
         </select>
         {anyFilter && (
