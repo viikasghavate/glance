@@ -395,7 +395,25 @@ export default function MyTasksPage() {
                 to={`/project/${task.project_id}?task=${task.id}`}
                 className={`task-row ${isOverdue(task.due_date, task.status, today) ? 'overdue' : ''}`}
               >
-                <div className="task-row-title">{task.title}</div>
+                <div className="task-row-title">{task.title}
+                  {task.subtask_count > 0 && (
+                    <span className="subtask-count">{task.subtask_count}</span>
+                  )}
+                  {task.comment_count > 0 && (
+                    <span className="comment-count" title={`${task.comment_count} comment${task.comment_count === 1 ? '' : 's'}`}>💬 {task.comment_count}</span>
+                  )}
+                  {task.recurrence && task.recurrence !== 'none' && (
+                    <span className="recurrence-badge" title={`Recurring: ${task.recurrence}`}>↻</span>
+                  )}
+                  {task.blockedBy && task.blockedBy.some(d => d.status !== 'done') && (
+                    <span className="blocked-badge" title="Blocked by incomplete dependencies">⛔</span>
+                  )}
+                  {task.checklist_progress && task.checklist_progress.total > 0 && (
+                    <span className={`checklist-chip ${task.checklist_progress.completed === task.checklist_progress.total ? 'complete' : ''}`}>
+                      ☑ {task.checklist_progress.completed}/{task.checklist_progress.total}
+                    </span>
+                  )}
+                </div>
                 <div className="task-row-meta">
                   {task.project_name && <span className="task-row-project">{task.project_name}</span>}
                   <span className={`badge badge-${task.status}`}>{statusLabel(task.status)}</span>
