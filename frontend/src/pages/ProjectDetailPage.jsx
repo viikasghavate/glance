@@ -243,6 +243,7 @@ export default function ProjectDetailPage() {
           onStatusChange={(taskId, status) => handleTaskUpdate(taskId, { status })}
           onReorder={handleReorder}
           readOnly={hasRole('viewer')}
+          badgeStatus={true}
         />
       )}
       {view === 'timeline' && (

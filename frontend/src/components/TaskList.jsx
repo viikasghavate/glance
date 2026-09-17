@@ -18,7 +18,8 @@ const inDueWeek = (due, today) => {
   return String(due) <= endStr;
 };
 
-export default function TaskList({ tasks, users, onTaskClick, onStatusChange, onReorder, readOnly }) {
+export default function TaskList({ tasks, users, onTaskClick, onStatusChange, onReorder, readOnly, badgeStatus = false }) {
+  const [showStatusBadges, setShowStatusBadges] = useState(!!badgeStatus);
   const [filterStatus, setFilterStatus] = useState('');
   const [filterPriority, setFilterPriority] = useState('');
   const [filterAssignee, setFilterAssignee] = useState('');
@@ -294,6 +295,9 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
         >
           {sortDir === 'asc' ? '↑' : '↓'}
         </button>
+        <button type="button" className="btn-ghost btn-sm" onClick={() => setShowStatusBadges(s => !s)} title="Toggle status badges / inline dropdowns">
+          {showStatusBadges ? 'Badges' : 'Status dropdowns'}
+        </button>
         <button type="button" className="btn-ghost btn-sm" onClick={collapseAll} title="Collapse all subtasks">Collapse all</button>
         <button type="button" className="btn-ghost btn-sm" onClick={expandAll} title="Expand all subtasks">Expand all</button>
       </div>
@@ -371,16 +375,20 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
                   {task.milestone_name && <span className="badge badge-in_progress">{task.milestone_name}</span>}
                 </div>
                 <div className="task-table-cell">
-                  <select
-                    value={task.status}
-                    onClick={e => e.stopPropagation()}
-                    onChange={e => onStatusChange(task.id, e.target.value)}
-                    className="status-select"
-                  >
-                    <option value="todo">To Do</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="done">Done</option>
-                  </select>
+                  {readOnly || showStatusBadges ? (
+                    <span className={`badge badge-${task.status}`}>{statusLabel(task.status)}</span>
+                  ) : (
+                    <select
+                      value={task.status}
+                      onClick={e => e.stopPropagation()}
+                      onChange={e => onStatusChange(task.id, e.target.value)}
+                      className="status-select"
+                    >
+                      <option value="todo">To Do</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="done">Done</option>
+                    </select>
+                  )}
                 </div>
                 <div className="task-table-cell"><span className={`badge badge-${task.priority}`}>{task.priority}</span></div>
                 <div className="task-table-cell">{task.assignee_name || '-'}</div>

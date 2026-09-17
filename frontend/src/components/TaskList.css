@@ -42,7 +42,7 @@
 
 .task-table-row {
   display: grid;
-  grid-template-columns: 28% 16% 12% 10% 12% 10% 6% 6%;
+  grid-template-columns: 26% 16% 14% 10% 12% 10% 6% 6%;
   align-items: center;
 }
 
