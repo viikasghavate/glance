@@ -122,6 +122,8 @@ export default function ActivityLogPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
   const [users, setUsers] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [projectId, setProjectId] = useState('');
   const [userId, setUserId] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -136,6 +138,7 @@ export default function ActivityLogPage() {
   const prevUserIdRef = useRef('');
   const prevFromRef = useRef('');
   const prevToRef = useRef('');
+  const prevProjectRef = useRef('');
   const debounceRef = useRef(null);
 
   const load = useCallback(async (type, reset) => {
@@ -148,6 +151,7 @@ export default function ActivityLogPage() {
       if (type) params.set('entity_type', type);
       if (debouncedQuery) params.set('q', debouncedQuery);
       if (userId) params.set('user_id', userId);
+      if (projectId) params.set('project_id', projectId);
       if (fromDate) params.set('from', fromDate);
       if (toDate) params.set('to', toDate);
       const data = await apiFetch(`/activity?${params.toString()}`);
@@ -168,7 +172,7 @@ export default function ActivityLogPage() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [apiFetch, limit, debouncedQuery, userId, fromDate, toDate]);
+  }, [apiFetch, limit, debouncedQuery, userId, fromDate, toDate, projectId]);
 
   const isFirstLoad = useRef(true);
 
@@ -179,16 +183,23 @@ export default function ActivityLogPage() {
   }, [apiFetch]);
 
   useEffect(() => {
-    const reset = isFirstLoad.current || entityType !== prevEntityRef.current || debouncedQuery !== prevQueryRef.current || userId !== prevUserIdRef.current || fromDate !== prevFromRef.current || toDate !== prevToRef.current;
+    apiFetch('/projects').then(data => {
+      setProjects(Array.isArray(data) ? data : []);
+    }).catch(() => {});
+  }, [apiFetch]);
+
+  useEffect(() => {
+    const reset = isFirstLoad.current || entityType !== prevEntityRef.current || debouncedQuery !== prevQueryRef.current || userId !== prevUserIdRef.current || fromDate !== prevFromRef.current || toDate !== prevToRef.current || projectId !== prevProjectRef.current;
     isFirstLoad.current = false;
     prevEntityRef.current = entityType;
     prevQueryRef.current = debouncedQuery;
     prevUserIdRef.current = userId;
     prevFromRef.current = fromDate;
     prevToRef.current = toDate;
+    prevProjectRef.current = projectId;
     load(entityType, reset);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityType, debouncedQuery, limit, userId, fromDate, toDate]);
+  }, [entityType, debouncedQuery, limit, userId, fromDate, toDate, projectId]);
 
   useEffect(() => {
     clearTimeout(debounceRef.current);
@@ -213,6 +224,11 @@ export default function ActivityLogPage() {
     setUserId(e.target.value);
   };
 
+  const handleProjectChange = (e) => {
+    setLimit(PAGE_SIZE);
+    setProjectId(e.target.value);
+  };
+
   const handleFromDateChange = (e) => {
     setLimit(PAGE_SIZE);
     setFromDate(e.target.value);
@@ -235,6 +251,7 @@ export default function ActivityLogPage() {
       if (entityType) params.set('entity_type', entityType);
       if (debouncedQuery) params.set('q', debouncedQuery);
       if (userId) params.set('user_id', userId);
+      if (projectId) params.set('project_id', projectId);
       if (fromDate) params.set('from', fromDate);
       if (toDate) params.set('to', toDate);
       const qs = params.toString();
@@ -292,6 +309,16 @@ export default function ActivityLogPage() {
           <option value="">All Users</option>
           {users.map(u => (
             <option key={u.id} value={u.id}>{u.name}</option>
+          ))}
+        </select>
+        <select
+          className="activity-filter-select"
+          value={projectId}
+          onChange={handleProjectChange}
+        >
+          <option value="">All Projects</option>
+          {projects.map(p => (
+            <option key={p.id} value={p.id}>{p.name}</option>
           ))}
         </select>
         <input
