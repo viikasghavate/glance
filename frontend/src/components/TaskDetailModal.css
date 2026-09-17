@@ -101,8 +101,14 @@
   color: var(--text-muted);
 }
 
+.comment-actions {
+  display: flex;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
 .comment-header .btn-ghost {
-  margin-left: 0.5rem;
+  margin-left: 0;
 }
 
 .comment-body {

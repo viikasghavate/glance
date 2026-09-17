@@ -10,6 +10,8 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
   const [comments, setComments] = useState([]);
   const [commentBody, setCommentBody] = useState('');
   const [loadingComments, setLoadingComments] = useState(true);
+  const [editingCommentId, setEditingCommentId] = useState(null);
+  const [editBody, setEditBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [parentId, setParentId] = useState(task.parent_id || '');
   const [dependsOnId, setDependsOnId] = useState('');
@@ -400,6 +402,26 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
     }
   };
 
+  const handleStartEditComment = (c) => {
+    setEditingCommentId(c.id);
+    setEditBody(c.body);
+  };
+
+  const handleSaveEditComment = async (e) => {
+    e.preventDefault();
+    if (!editBody.trim()) return;
+    try {
+      const updated = await apiFetch(`/comments/${editingCommentId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ body: editBody.trim() })
+      });
+      setComments(prev => prev.map(c => c.id === updated.id ? updated : c));
+      setEditingCommentId(null);
+    } catch (err) {
+      alert(err.message || 'Failed');
+    }
+  };
+
   const handleParentChange = (e) => {
     const val = e.target.value;
     setParentId(val);
@@ -748,10 +770,21 @@ export default function TaskDetailModal({ task, tasks, users, onClose, onUpdate,
                     <span className="comment-author">{c.user_name}</span>
                     <span className="comment-date">{new Date(c.created_at).toLocaleString()}</span>
                     {!readOnly && (
-                      <button className="btn-ghost btn-sm" onClick={() => handleDeleteComment(c)} title="Delete">&times;</button>
+                      <div className="comment-actions">
+                        <button className="btn-ghost btn-sm" onClick={() => handleStartEditComment(c)} title="Edit">Edit</button>
+                        <button className="btn-ghost btn-sm" onClick={() => handleDeleteComment(c)} title="Delete">&times;</button>
+                      </div>
                     )}
                   </div>
-                  <p className="comment-body">{c.body}</p>
+                  {editingCommentId === c.id ? (
+                    <form onSubmit={handleSaveEditComment} className="comment-form">
+                      <textarea value={editBody} onChange={e => setEditBody(e.target.value)} rows={2} autoFocus />
+                      <button type="submit" className="btn-primary btn-sm" disabled={!editBody.trim()}>Save</button>
+                      <button type="button" className="btn-ghost btn-sm" onClick={() => setEditingCommentId(null)}>Cancel</button>
+                    </form>
+                  ) : (
+                    <p className="comment-body">{c.body}</p>
+                  )}
                 </div>
               ))}
             </div>

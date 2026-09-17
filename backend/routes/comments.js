@@ -47,6 +47,34 @@ router.post('/task/:taskId', requireRole('admin', 'member'), async (req, res) =>
   res.status(201).json(comment);
 });
 
+router.patch('/:id', requireRole('admin', 'member'), async (req, res) => {
+  const { id } = req.params;
+  const { body } = req.body;
+  if (!body || !String(body).trim()) return res.status(400).json({ error: 'body is required' });
+
+  const comment = await db.prepare(`
+    SELECT c.*, t.title as task_title
+    FROM comments c
+    LEFT JOIN tasks t ON t.id = c.task_id
+    WHERE c.id = ?
+  `).get(id);
+  if (!comment) return res.status(404).json({ error: 'Comment not found' });
+
+  const trimmed = String(body).trim();
+  await db.prepare('UPDATE comments SET body = ? WHERE id = ?').run(trimmed, id);
+
+  const updated = await db.prepare(`
+    SELECT c.*, u.name as user_name, u.email as user_email
+    FROM comments c
+    JOIN users u ON c.user_id = u.id
+    WHERE c.id = ?
+  `).get(id);
+
+  logActivity(req.user.id, 'comment.edited', 'comment', comment.id, comment.task_title, { task_id: comment.task_id });
+
+  res.json(updated);
+});
+
 router.delete('/:id', requireRole('admin', 'member'), async (req, res) => {
   const { id } = req.params;
   const comment = await db.prepare(`
