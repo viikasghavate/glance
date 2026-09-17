@@ -85,6 +85,56 @@ export default function ProjectListPage() {
       return sortDir === 'desc' ? -cmp : cmp;
     });
 
+  const handleExportCsv = () => {
+    const escape = (value) => {
+      const s = value === null || value === undefined ? '' : String(value);
+      if (/[",\n\r]/.test(s)) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+    };
+
+    const header = [
+      'name', 'status', 'priority', 'progress', 'owner', 'start_date',
+      'due_date', 'open_tasks', 'overdue_tasks', 'tags', 'created_at'
+    ];
+
+    const rows = filteredProjects.map(p => {
+      const taskCounts = p.taskCounts || {};
+      const tags = p.tagList && p.tagList.length
+        ? p.tagList.map(t => t.name).join('; ')
+        : (p.tags || '');
+      const owner = p.owner_name || '';
+      const openTasks = p.taskCounts ? (taskCounts.todo || 0) + (taskCounts.in_progress || 0) : '';
+      const overdueTasks = taskCounts.overdue || '';
+      return [
+        p.name,
+        statusLabels[p.status] || p.status,
+        p.priority,
+        p.progress,
+        owner,
+        p.start_date,
+        p.due_date,
+        openTasks,
+        overdueTasks,
+        tags,
+        p.created_at
+      ].map(escape).join(',');
+    });
+
+    const csv = [header.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const date = new Date().toISOString().slice(0, 10);
+    a.download = `projects-${date}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const handleDelete = async (project) => {
     if (!confirm(`Delete project "${project.name}"? This will also delete all tasks and comments.`)) return;
     await apiFetch(`/projects/${project.id}`, { method: 'DELETE' });
@@ -139,11 +189,16 @@ export default function ProjectListPage() {
     <div>
       <div className="page-header">
         <h1>Projects</h1>
-        {!hasRole('viewer') && (
-          <button className="btn-primary" onClick={openNewProjectModal}>
-            + New Project
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <button className="btn-ghost" onClick={handleExportCsv}>
+            Export CSV
           </button>
-        )}
+          {!hasRole('viewer') && (
+            <button className="btn-primary" onClick={openNewProjectModal}>
+              + New Project
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="project-filters">
