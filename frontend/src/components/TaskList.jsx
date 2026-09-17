@@ -33,6 +33,31 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
   const [sortBy, setSortBy] = useState('');
   const [sortDir, setSortDir] = useState('asc');
 
+  const anyFilter =
+    search !== '' ||
+    sortBy !== '' ||
+    sortDir !== 'asc' ||
+    filterStatus !== '' ||
+    filterPriority !== '' ||
+    filterAssignee !== '' ||
+    filterLabel !== '' ||
+    filterSprint !== '' ||
+    filterMilestone !== '' ||
+    filterDue !== '';
+
+  const clearFilters = () => {
+    setSearch('');
+    setSortBy('');
+    setSortDir('asc');
+    setFilterStatus('');
+    setFilterPriority('');
+    setFilterAssignee('');
+    setFilterLabel('');
+    setFilterSprint('');
+    setFilterMilestone('');
+    setFilterDue('');
+  };
+
   const priorityIndex = { low: 0, medium: 1, high: 2 };
   const statusIndex = { todo: 0, in_progress: 1, done: 2 };
 
@@ -295,6 +320,11 @@ export default function TaskList({ tasks, users, onTaskClick, onStatusChange, on
         >
           {sortDir === 'asc' ? '↑' : '↓'}
         </button>
+        {anyFilter && (
+          <button type="button" className="toolbar-clear" onClick={clearFilters}>
+            Clear filters
+          </button>
+        )}
         <button type="button" className="btn-ghost btn-sm" onClick={() => setShowStatusBadges(s => !s)} title="Toggle status badges / inline dropdowns">
           {showStatusBadges ? 'Badges' : 'Status dropdowns'}
         </button>

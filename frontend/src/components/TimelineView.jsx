@@ -79,6 +79,29 @@ export default function TimelineView({ tasks, users, onTaskClick }) {
   const [sortBy, setSortBy] = useState('');
   const [sortDir, setSortDir] = useState('asc');
 
+  const anyFilter =
+    search !== '' ||
+    sortBy !== '' ||
+    sortDir !== 'asc' ||
+    filterLabel !== '' ||
+    filterPriority !== '' ||
+    filterAssignee !== '' ||
+    filterSprint !== '' ||
+    filterMilestone !== '' ||
+    filterDue !== '';
+
+  const clearFilters = () => {
+    setSearch('');
+    setSortBy('');
+    setSortDir('asc');
+    setFilterLabel('');
+    setFilterPriority('');
+    setFilterAssignee('');
+    setFilterSprint('');
+    setFilterMilestone('');
+    setFilterDue('');
+  };
+
   const priorityIndex = { low: 0, medium: 1, high: 2 };
   const statusIndex = { todo: 0, in_progress: 1, done: 2 };
 
@@ -412,6 +435,11 @@ export default function TimelineView({ tasks, users, onTaskClick }) {
         >
           {sortDir === 'asc' ? '↑' : '↓'}
         </button>
+        {anyFilter && (
+          <button type="button" className="toolbar-clear" onClick={clearFilters}>
+            Clear filters
+          </button>
+        )}
       </div>
       <div className="timeline-scroll" ref={timelineRef}>
         <div className="timeline-inner" style={{ width: leftWidth + timelineWidth }}>

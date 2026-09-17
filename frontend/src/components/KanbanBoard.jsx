@@ -37,6 +37,29 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
   const [sortBy, setSortBy] = useState('');
   const [sortDir, setSortDir] = useState('asc');
 
+  const anyFilter =
+    search !== '' ||
+    sortBy !== '' ||
+    sortDir !== 'asc' ||
+    filterLabel !== '' ||
+    filterPriority !== '' ||
+    filterAssignee !== '' ||
+    filterSprint !== '' ||
+    filterMilestone !== '' ||
+    filterDue !== '';
+
+  const clearFilters = () => {
+    setSearch('');
+    setSortBy('');
+    setSortDir('asc');
+    setFilterLabel('');
+    setFilterPriority('');
+    setFilterAssignee('');
+    setFilterSprint('');
+    setFilterMilestone('');
+    setFilterDue('');
+  };
+
   const priorityIndex = { low: 0, medium: 1, high: 2 };
   const statusIndex = { todo: 0, in_progress: 1, done: 2 };
 
@@ -291,6 +314,11 @@ export default function KanbanBoard({ tasks, users, onReorder, onTaskClick, onEd
         >
           {sortDir === 'asc' ? '↑' : '↓'}
         </button>
+        {anyFilter && (
+          <button type="button" className="toolbar-clear" onClick={clearFilters}>
+            Clear filters
+          </button>
+        )}
         <button type="button" className="btn-ghost btn-sm" onClick={collapseAll} title="Collapse all subtasks">Collapse all</button>
         <button type="button" className="btn-ghost btn-sm" onClick={expandAll} title="Expand all subtasks">Expand all</button>
       </div>
