@@ -11,6 +11,26 @@ const statusLabels = {
   archived: 'Archived'
 };
 
+function projectTagNames(p) {
+  let names;
+  if (p.tagList && p.tagList.length) {
+    names = p.tagList.map(x => (typeof x === 'string' ? x : x && x.name));
+  } else {
+    names = (p.tags || '').split(',');
+  }
+  const seen = new Set();
+  const result = [];
+  for (const n of names) {
+    if (n === null || n === undefined) continue;
+    const t = String(n).trim();
+    if (!t) continue;
+    if (seen.has(t)) continue;
+    seen.add(t);
+    result.push(t);
+  }
+  return result;
+}
+
 export default function ProjectListPage() {
   const { apiFetch, hasRole } = useAuth();
   const {
@@ -20,6 +40,7 @@ export default function ProjectListPage() {
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [tagFilter, setTagFilter] = useState('');
   const [sortBy, setSortBy] = useState('');
   const [sortDir, setSortDir] = useState('asc');
   const [copiedId, setCopiedId] = useState(null);
@@ -30,6 +51,26 @@ export default function ProjectListPage() {
 
   const priorityIndex = { low: 0, medium: 1, high: 2 };
   const statusIndex = { active: 0, on_hold: 1, completed: 2, archived: 3 };
+
+  const distinctTags = projects
+    .flatMap(p => projectTagNames(p))
+    .filter((t, i, arr) => arr.findIndex(x => x.toLowerCase() === t.toLowerCase()) === i)
+    .sort((a, b) => a.localeCompare(b));
+
+  const anyFilter =
+    search !== '' ||
+    statusFilter !== 'all' ||
+    tagFilter !== '' ||
+    sortBy !== '' ||
+    sortDir !== 'asc';
+
+  const clearFilters = () => {
+    setSearch('');
+    setStatusFilter('all');
+    setTagFilter('');
+    setSortBy('');
+    setSortDir('asc');
+  };
 
   const filteredProjects = projects
     .filter(p => {
@@ -46,7 +87,10 @@ export default function ProjectListPage() {
         matchesStatus = p.status === statusFilter;
       }
 
-      return matchesSearch && matchesStatus;
+      const matchesTag = !tagFilter ||
+        projectTagNames(p).some(t => t.toLowerCase() === tagFilter.toLowerCase());
+
+      return matchesSearch && matchesStatus && matchesTag;
     })
     .sort((a, b) => {
       if (sortBy === '') return 0;
@@ -101,9 +145,7 @@ export default function ProjectListPage() {
 
     const rows = filteredProjects.map(p => {
       const taskCounts = p.taskCounts || {};
-      const tags = p.tagList && p.tagList.length
-        ? p.tagList.map(t => t.name).join('; ')
-        : (p.tags || '');
+      const tags = projectTagNames(p).join('; ');
       const owner = p.owner_name || '';
       const openTasks = p.taskCounts ? (taskCounts.todo || 0) + (taskCounts.in_progress || 0) : '';
       const overdueTasks = taskCounts.overdue || '';
@@ -222,6 +264,17 @@ export default function ProjectListPage() {
         </select>
         <select
           className="project-status-filter"
+          aria-label="Filter by tag"
+          value={tagFilter}
+          onChange={e => setTagFilter(e.target.value)}
+        >
+          <option value="">All Tags</option>
+          {distinctTags.map(t => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
+        <select
+          className="project-status-filter"
           value={sortBy}
           onChange={e => setSortBy(e.target.value)}
         >
@@ -242,6 +295,11 @@ export default function ProjectListPage() {
         >
           {sortDir === 'asc' ? '▲' : '▼'}
         </button>
+        {anyFilter && (
+          <button type="button" className="btn-ghost btn-sm" onClick={clearFilters}>
+            Clear filters
+          </button>
+        )}
       </div>
 
       {projects.length === 0 ? (
@@ -272,10 +330,10 @@ export default function ProjectListPage() {
                   <span className={`badge badge-${p.priority}`}>{p.priority}</span>
                   {p.owner_name && <span className="meta-owner">{p.owner_name}</span>}
                 </div>
-                {p.tags && (
+                {projectTagNames(p).length > 0 && (
                   <div className="project-card-tags">
-                    {p.tags.split(',').map((t, i) => (
-                      <span key={i} className="label-badge">{t.trim()}</span>
+                    {projectTagNames(p).map((t, i) => (
+                      <span key={i} className="label-badge">{t}</span>
                     ))}
                   </div>
                 )}

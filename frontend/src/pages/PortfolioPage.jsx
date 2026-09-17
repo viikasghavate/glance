@@ -74,7 +74,7 @@ export default function PortfolioPage() {
       const portfolio = portfolios.find(pf => pf.id === p.portfolio_id);
       const program = programs.find(pr => pr.id === p.program_id);
       const tags = p.tagList && p.tagList.length
-        ? p.tagList.map(t => t.name).join('; ')
+        ? p.tagList.map(t => (typeof t === 'string' ? t : t && t.name)).filter(Boolean).join('; ')
         : (p.tags || '');
       const openTasks = p.taskCounts ? (taskCounts.todo || 0) + (taskCounts.in_progress || 0) : '';
       const overdueTasks = taskCounts.overdue || '';
