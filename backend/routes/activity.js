@@ -7,9 +7,24 @@ const router = Router();
 router.use(requireAuth);
 
 router.get('/', async (req, res) => {
-  const { project_id, entity_type, q, user_id, limit } = req.query;
+  const { project_id, entity_type, q, user_id, limit, from, to } = req.query;
   const conditions = [];
   const values = [];
+
+  if (from !== undefined && from !== '') {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || Number.isNaN(Date.parse(from))) {
+      return res.status(400).json({ error: 'Invalid from date format (expected YYYY-MM-DD)' });
+    }
+    conditions.push('a.created_at >= ?');
+    values.push(`${from} 00:00:00`);
+  }
+  if (to !== undefined && to !== '') {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(to) || Number.isNaN(Date.parse(to))) {
+      return res.status(400).json({ error: 'Invalid to date format (expected YYYY-MM-DD)' });
+    }
+    conditions.push('a.created_at <= ?');
+    values.push(`${to} 23:59:59`);
+  }
 
   if (project_id) {
     conditions.push(`a.entity_type = 'task' AND t.project_id = ?`);
@@ -52,9 +67,24 @@ function csvEscape(value) {
 }
 
 router.get('/export', async (req, res) => {
-  const { project_id, entity_type, q, user_id } = req.query;
+  const { project_id, entity_type, q, user_id, from, to } = req.query;
   const conditions = [];
   const values = [];
+
+  if (from !== undefined && from !== '') {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || Number.isNaN(Date.parse(from))) {
+      return res.status(400).json({ error: 'Invalid from date format (expected YYYY-MM-DD)' });
+    }
+    conditions.push('a.created_at >= ?');
+    values.push(`${from} 00:00:00`);
+  }
+  if (to !== undefined && to !== '') {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(to) || Number.isNaN(Date.parse(to))) {
+      return res.status(400).json({ error: 'Invalid to date format (expected YYYY-MM-DD)' });
+    }
+    conditions.push('a.created_at <= ?');
+    values.push(`${to} 23:59:59`);
+  }
 
   if (project_id) {
     conditions.push(`a.entity_type = 'task' AND t.project_id = ?`);

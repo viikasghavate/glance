@@ -123,6 +123,8 @@ export default function ActivityLogPage() {
   const [error, setError] = useState(null);
   const [users, setUsers] = useState([]);
   const [userId, setUserId] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [entityType, setEntityType] = useState('');
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -132,6 +134,8 @@ export default function ActivityLogPage() {
   const prevEntityRef = useRef('');
   const prevQueryRef = useRef('');
   const prevUserIdRef = useRef('');
+  const prevFromRef = useRef('');
+  const prevToRef = useRef('');
   const debounceRef = useRef(null);
 
   const load = useCallback(async (type, reset) => {
@@ -144,6 +148,8 @@ export default function ActivityLogPage() {
       if (type) params.set('entity_type', type);
       if (debouncedQuery) params.set('q', debouncedQuery);
       if (userId) params.set('user_id', userId);
+      if (fromDate) params.set('from', fromDate);
+      if (toDate) params.set('to', toDate);
       const data = await apiFetch(`/activity?${params.toString()}`);
       const list = Array.isArray(data) ? data : [];
       if (reset) {
@@ -162,7 +168,7 @@ export default function ActivityLogPage() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [apiFetch, limit, debouncedQuery, userId]);
+  }, [apiFetch, limit, debouncedQuery, userId, fromDate, toDate]);
 
   const isFirstLoad = useRef(true);
 
@@ -173,14 +179,16 @@ export default function ActivityLogPage() {
   }, [apiFetch]);
 
   useEffect(() => {
-    const reset = isFirstLoad.current || entityType !== prevEntityRef.current || debouncedQuery !== prevQueryRef.current || userId !== prevUserIdRef.current;
+    const reset = isFirstLoad.current || entityType !== prevEntityRef.current || debouncedQuery !== prevQueryRef.current || userId !== prevUserIdRef.current || fromDate !== prevFromRef.current || toDate !== prevToRef.current;
     isFirstLoad.current = false;
     prevEntityRef.current = entityType;
     prevQueryRef.current = debouncedQuery;
     prevUserIdRef.current = userId;
+    prevFromRef.current = fromDate;
+    prevToRef.current = toDate;
     load(entityType, reset);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityType, debouncedQuery, limit, userId]);
+  }, [entityType, debouncedQuery, limit, userId, fromDate, toDate]);
 
   useEffect(() => {
     clearTimeout(debounceRef.current);
@@ -205,6 +213,16 @@ export default function ActivityLogPage() {
     setUserId(e.target.value);
   };
 
+  const handleFromDateChange = (e) => {
+    setLimit(PAGE_SIZE);
+    setFromDate(e.target.value);
+  };
+
+  const handleToDateChange = (e) => {
+    setLimit(PAGE_SIZE);
+    setToDate(e.target.value);
+  };
+
   const handleLoadMore = () => {
     setLimit(prev => Math.min(prev + PAGE_SIZE, 200));
   };
@@ -217,6 +235,8 @@ export default function ActivityLogPage() {
       if (entityType) params.set('entity_type', entityType);
       if (debouncedQuery) params.set('q', debouncedQuery);
       if (userId) params.set('user_id', userId);
+      if (fromDate) params.set('from', fromDate);
+      if (toDate) params.set('to', toDate);
       const qs = params.toString();
       const res = await fetch(`/api/activity/export${qs ? `?${qs}` : ''}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -274,6 +294,22 @@ export default function ActivityLogPage() {
             <option key={u.id} value={u.id}>{u.name}</option>
           ))}
         </select>
+        <input
+          className="activity-filter-select"
+          type="date"
+          value={fromDate}
+          onChange={handleFromDateChange}
+          aria-label="From date"
+          title="From date"
+        />
+        <input
+          className="activity-filter-select"
+          type="date"
+          value={toDate}
+          onChange={handleToDateChange}
+          aria-label="To date"
+          title="To date"
+        />
         <button
           className="btn-ghost"
           onClick={handleExportCsv}
