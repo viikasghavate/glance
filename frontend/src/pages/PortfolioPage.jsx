@@ -6,6 +6,13 @@ import './PortfolioPage.css';
 
 const COLORS = ['#6366f1', '#ef4444', '#22c55e', '#f59e0b', '#3b82f6', '#ec4899', '#8b5cf6', '#14b8a6'];
 
+const statusLabels = {
+  active: 'Active',
+  on_hold: 'On Hold',
+  completed: 'Completed',
+  archived: 'Archived'
+};
+
 export default function PortfolioPage() {
   const { apiFetch, hasRole } = useAuth();
   const { portfolios, programs, projects, refreshPortfolios, refreshProjects } = useUI();
@@ -47,13 +54,70 @@ export default function PortfolioPage() {
 
   const unassignedProjects = projects.filter(p => !p.program_id && !p.portfolio_id);
 
+  const handleExportCsv = () => {
+    const escape = (value) => {
+      const s = value === null || value === undefined ? '' : String(value);
+      if (/[",\n\r]/.test(s)) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+    };
+
+    const header = [
+      'name', 'status', 'priority', 'progress', 'owner', 'portfolio',
+      'program', 'start_date', 'due_date', 'open_tasks', 'overdue_tasks',
+      'tags', 'created_at'
+    ];
+
+    const rows = projects.map(p => {
+      const taskCounts = p.taskCounts || {};
+      const portfolio = portfolios.find(pf => pf.id === p.portfolio_id);
+      const program = programs.find(pr => pr.id === p.program_id);
+      const tags = p.tagList && p.tagList.length
+        ? p.tagList.map(t => t.name).join('; ')
+        : (p.tags || '');
+      const openTasks = p.taskCounts ? (taskCounts.todo || 0) + (taskCounts.in_progress || 0) : '';
+      const overdueTasks = taskCounts.overdue || '';
+      return [
+        p.name,
+        statusLabels[p.status] || p.status,
+        p.priority,
+        p.progress,
+        p.owner_name || '',
+        portfolio ? portfolio.name : '',
+        program ? program.name : '',
+        p.start_date,
+        p.due_date,
+        openTasks,
+        overdueTasks,
+        tags,
+        p.created_at
+      ].map(escape).join(',');
+    });
+
+    const csv = [header.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const date = new Date().toISOString().slice(0, 10);
+    a.download = `portfolios-${date}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div>
       <div className="page-header">
         <h1>Portfolios & Programs</h1>
-        {canEdit && (
-          <button className="btn-primary" onClick={openNewPortfolio}>+ New Portfolio</button>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <button className="btn-ghost" onClick={handleExportCsv}>Export CSV</button>
+          {canEdit && (
+            <button className="btn-primary" onClick={openNewPortfolio}>+ New Portfolio</button>
+          )}
+        </div>
       </div>
 
       {portfolios.length === 0 ? (
